@@ -16,19 +16,24 @@ typedef struct {
 } translation;
 
 static const translation cz_en[] = {
-    {"Vypnuto", "Off"},
-    {"Zapnuto", "On"},
-    {"Odhlásit", "Logoff"},
-    {"Přihlásit", "Login"},
-    {"Neúspěšné přihlášení", "Unsuccessful login"},
+    {"Vypnuto",                    "Off"},
+    {"Zapnuto",                    "On"},
+    {"Odhlásit",                   "Logoff"},
+    {"Přihlásit",                  "Login"},
+    {"Neúspěšné přihlášení",       "Unsuccessful login"},
     {"Automato - přihlášení obsluhy","Automato - login"},
-    {"Uživatelské jméno","Username"},
-    {"Heslo", "Password"},
-    {"Automato", "Automato"},
-    {"Automato - přihlášení obsluhy", "Automato - operator login"},
-    {"Automato - přihlášení", "Automato - login"},
+    {"Uživatelské jméno",          "Username"},
+    {"Heslo",                      "Password"},
+    {"Automato",                   "Automato"},
+    {"Automato - přihlášení obsluhy","Automato - operator login"},
+    {"Automato - přihlášení",      "Automato - login"},
+    {"Provoz",                     "Operation"},
+    {"Denní trh",                  "Day‑ahead market"},
+    {"Nastavení",                  "Settings"},
+
     /* sentinel – signals end of table */
-    {"", ""}};
+    {"", ""} };
+
 
 // translation function
 // returns English text for the given Czech text

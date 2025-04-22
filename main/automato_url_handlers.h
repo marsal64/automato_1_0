@@ -2,10 +2,29 @@
  * URL handlers
  */
 
-// root handler
+/* names of all three pages – indexes: 0=provoz,1=dennitrh,2=nastaveni */
+static const char *page_uri[3]   = {"/provoz", "/dennitrh", "/nastaveni"};
+static const char *page_label[3] = {"Provoz", "Denní trh", "Nastavení"};
+
+/* helper: build a <nav> bar;   active_idx = 0,1,2 */
+static void nav_bar(char *buf, size_t max, int active_idx)
+{
+    size_t n = 0;
+    n += snprintf(buf+n, max-n, "<nav>");
+    for (int i = 0; i < 3 && n < max; ++i) {
+        n += snprintf(buf+n, max-n,
+            "<a class=\"tab%s\" href=\"%s\">%s</a>",
+            (i==active_idx)?" active":"", page_uri[i], t(page_label[i]));
+    }
+    snprintf(buf+n, max-n, "</nav>");
+}
+
+/*----------------------------------------------------------------------------
+ * Root page  ("Operation" – index 0)
+ *--------------------------------------------------------------------------*/
 esp_err_t root_get_handler(httpd_req_t *req)
 {
-    /* 1. Authorisation -----------------------------------------------------*/
+    /* 1. Authorisation -------------------------------------------------- */
     char cookie_value[128];
     if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) ||
         strcmp(cookie_value, "1") != 0 || current_user_id == -1) {
@@ -15,63 +34,62 @@ esp_err_t root_get_handler(httpd_req_t *req)
         return ESP_OK;
     }
 
-    /* 2. Build status line ------------------------------------------------*/
-    time_t now;  time(&now);
-    struct tm tm_info;  localtime_r(&now, &tm_info);
-
-    static const char *dow_cz[] = {"Ne","Po","Út","St","Čt","Pá","So"};
-    static const char *dow_en[] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
-
-    const char *dow = (gst_lang == LANG_CZ) ? dow_cz[tm_info.tm_wday]
-                                            : dow_en[tm_info.tm_wday];
-
-    char timestr[64];
-    strftime(timestr, sizeof(timestr), "%d.%m.%Y&nbsp;%H:%M:%S", &tm_info);
+    /* 2.  date / time / weekday / ip ----------------------------------- */
+    time_t now; time(&now);
+    struct tm tm_info; localtime_r(&now,&tm_info);
+    static const char *dow_cz[]={"Ne","Po","Út","St","Čt","Pá","So"};
+    static const char *dow_en[]={"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
+    const char *dow = (gst_lang==LANG_CZ)?dow_cz[tm_info.tm_wday]:dow_en[tm_info.tm_wday];
+    char timestr[64]; strftime(timestr,sizeof(timestr),"%d.%m.%Y&nbsp;%H:%M:%S",&tm_info);
 
     char statusline[256];
-    snprintf(statusline, sizeof(statusline),
-             "<span class=\"date\">%s</span> &nbsp;&nbsp;&nbsp;"
-             "<span class=\"weekday\">%s</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
-             "<span class=\"ip\">%s</span>",
-             timestr, dow, ipaddress);
+    snprintf(statusline,sizeof(statusline),
+             "<span class=\"date\">%s</span>&nbsp;&nbsp;&nbsp;"
+             "<span class=\"weekday\">%s</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+             "<span class=\"ip\">%s</span>", timestr,dow,ipaddress);
 
-    /* 3. Build HTML --------------------------------------------------------*/
+    /* 3. navigation ------------------------------------------------------ */
+    char navbar[256];
+    nav_bar(navbar,sizeof(navbar),0);   /* 0 = Operation page */
+
+    /* 4. Build HTML ------------------------------------------------------ */
     char html[RESP_SIZE];
-    size_t n = snprintf(html, sizeof(html),
-        "<!DOCTYPE html>"
-        "<html lang=\"cs\">"
-        "<head>"
-        "  <meta charset=\"UTF-8\">"
-        "  <title>%s</title>"
-        "  <style>"
-        "    body   { margin:0; font-family:Arial,sans-serif; }"
-        "    header { display:flex; align-items:center; padding:10px 20px;"
-        "             box-shadow:0 2px 4px rgba(0,0,0,.1); }"
-        "    header img { height:48px; }"
-        "    .status { flex:1; text-align:center; font-size:.95rem; }"
-        "    .status .date { font-weight:600; }"
-        "    .status .weekday { margin:0 6px; color:#555; }"
-        "    .status .ip { font-family:monospace; color:#006; }"
-        "    button.logout { padding:4px 10px; font-size:.8rem; cursor:pointer; }"
-        "  </style>"
-        "  <script>function logoff(){window.location.href='/logout';}</script>"
-        "</head><body>"
-        "<header>"
-        "  <img src=\"/logo\" alt=\"%s\">"
-        "  <span class=\"status\">%s</span>"
-        "  <button class=\"logout\" onclick=\"logoff()\">%s</button>"
-        "</header>"
+        const char *html_lang = (gst_lang == LANG_CZ) ? "cs" : "en";
+
+    size_t n = snprintf(html,sizeof(html),
+        "<!DOCTYPE html><html lang=\"%s\"><head>"
+        "<meta charset=\"UTF-8\"><title>%s</title>"
+        "<style>body{margin:0;font-family:Arial,sans-serif;}"
+        "header{display:flex;align-items:center;padding:10px 20px;box-shadow:0 2px 4px rgba(0,0,0,.1);}"
+        "header img{height:48px;}"
+        ".status{flex:1;text-align:center;font-size:.95rem;}"
+        ".status .date{font-weight:600;} .status .weekday{margin:0 6px;color:#555;} .status .ip{font-family:monospace;color:#006;}"
+        "button.logout{padding:4px 10px;font-size:.8rem;cursor:pointer;}"
+        /* nav tabs */
+        "nav{display:flex;justify-content:center;gap:40px;margin:30px 0;}"
+        "a.tab{padding:6px 14px;text-decoration:none;color:#000;border:1px solid #bbb;border-radius:4px;font-size:.85rem;}"
+        "a.tab.active{background:#e6f2ff;border-color:#339;}"
+        "</style>"
+        "<script>function logoff(){window.location.href='/logout';}</script></head><body>"
+        "<header><img src=\"/logo\" alt=\"%s\"><span class=\"status\">%s</span><button class=\"logout\" onclick=\"logoff()\">%s</button></header>%s"
+        "<!--  page content would go here  -->"
         "</body></html>",
-        t("Automato"),         /* <title>          */
-        t("Automato"),         /* logo alt         */
-        statusline,             /* fancy status     */
-        t("Odhlásit")          /* button label     */
-    );
+        html_lang,             /* <html lang=...> */
+        t("Automato"),             /* <title> */
+        t("Automato"),             /* logo alt */
+        statusline,
+        t("Odhlásit"),             /* button  */
+        navbar);
 
     httpd_resp_send(req, html, n);
     return ESP_OK;
 }
 
+/*----------------------------------------------------------------------------
+ *  Other pages would call nav_bar(...,1) or nav_bar(...,2) to highlight the
+ *  respective tab so that **all three** are always visible, with the current
+ *  page emphasised.
+ *---------------------------------------------------------------------------*/
 
 
 esp_err_t login_get_handler(httpd_req_t *req) {

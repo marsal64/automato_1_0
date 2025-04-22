@@ -73,26 +73,14 @@ static int wifi_retry_count = 0;
 //// S150U variables start ////////////////////
 
 
-typedef struct {
-    uint8_t sec;
-    uint8_t min;
-    uint8_t hour;
-    uint8_t wDay;
-    uint8_t date;
-    uint8_t month;
-    uint8_t year;
-} cas_p;
-cas_p btime;  // "base" time (ze sauny)
-
 // názvy dnů
 char translatedays[][10] = {"??", "ne", "po", "út", "st", "čt", "pá", "so"};
 // "zpracovaná data"
 uint8_t i_processed_data = 0;
 
 // additional
-static uint8_t nntptime_status;    // 0 - not OK, 1 - OK
-static char sntp_string[64];       // cas z internetu
-static char saunacas_string[128];  // cas ze sauny
+static uint8_t nntptime_status;  // 0 - not OK, 1 - OK
+static char sntp_string[64];     // cas z internetu
 char ipaddress[64];
 
 // sntp time info
@@ -227,8 +215,8 @@ typedef struct {
 } user_credentials_t;
 
 // credential definitions
-static user_credentials_t users[] = {{"sauna", INIT_PASSWORD_USER},
-                                     {"servis", INIT_PASSWORD_ADMIN}};
+static user_credentials_t users[] = {{"automato", INIT_PASSWORD_AUTOMATO},
+                                     {"admin", INIT_PASSWORD_ADMIN}};
 
 // t_ structure
 typedef struct {
@@ -736,7 +724,8 @@ void receive_task(void* pvParameters) {
 
         // something other than data?
         if (qi.code != UART_DATA) {
-            ESP_LOGE(TAG, "Non standard event during messages receive, code: %d",
+            ESP_LOGE(TAG,
+                     "Non standard event during messages receive, code: %d",
                      qi.code);
             hexlogger((uint8_t*)qi.message, qi.length);
             comm_status = COMST_ERR;
@@ -775,7 +764,6 @@ void receive_task(void* pvParameters) {
         // just for debug:
         // hexlogger((uint8_t*) qi.message, qi.length);
         ESP_LOG_BUFFER_HEXDUMP(TAG, qi.message, qi.length, ESP_LOG_INFO);
-
     }
 }
 /**
@@ -960,33 +948,35 @@ void app_main(void) {
 
     // po reset vymaž existující hesla
     if (button_reprovisioning) {
-        ESP_LOGI(TAG, "Vymaz stavajicich hesel uzivatelu sauna a servis");
-        nvs_erase_key(nvs_handle_storage, "password_sauna");
-        nvs_erase_key(nvs_handle_storage, "password_servis");
+        ESP_LOGI(TAG, "Erasing standard passwords for automato a admin");
+        nvs_erase_key(nvs_handle_storage, "password_automato");
+        nvs_erase_key(nvs_handle_storage, "password_admin");
     }
 
     // načti aplikační hesla z nvs
     char read_nvs_value[128];
     size_t required_size = sizeof(read_nvs_value);
     //
-    int err = nvs_get_str(nvs_handle_storage, "password_sauna", read_nvs_value,
-                          &required_size);
+    int err = nvs_get_str(nvs_handle_storage, "password_automato",
+                          read_nvs_value, &required_size);
     if (err == ESP_OK) {
         strcpy(users[0].password, read_nvs_value);
-        ESP_LOGI(TAG, "Heslo pro uzivatele sauna nacteno z nvs");
-        // ESP_LOGI(TAG, "Heslo pro sauna nacteno: %s", users[0].password);
+        ESP_LOGI(TAG, "Password for automato user read from nvs");
+        ESP_LOGI(TAG, "Password for automato user read from nvs, %s",
+                 users[0].password);
+
     } else {
-        ESP_LOGI(TAG, "Nacteno standardni heslo pro unizavele sauna");
+        ESP_LOGI(TAG, "Standard password for the user automato loaded");
     }
     //
-    err = nvs_get_str(nvs_handle_storage, "password_servis", read_nvs_value,
+    err = nvs_get_str(nvs_handle_storage, "password_admin", read_nvs_value,
                       &required_size);
     if (err == ESP_OK) {
         strcpy(users[1].password, read_nvs_value);
-        ESP_LOGI(TAG, "Heslo pro uzivatele servis nacteno z nvs");
+        ESP_LOGI(TAG, "Password for the automato user read from nvs");
         // ESP_LOGI(TAG, "Heslo pro servis nacteno: %s", users[1].password);
     } else {
-        ESP_LOGI(TAG, "Nacteno standardni heslo pro uzivatele servis");
+        ESP_LOGI(TAG, "Standard password for the user admin loaded");
     }
 
     // výrobní číslo: pokud existuje, načti z nvs, jinak standardní
@@ -994,16 +984,16 @@ void app_main(void) {
                       &required_size);
     if (err == ESP_OK) {
         strcpy(vyrobnicislo, read_nvs_value);
-        ESP_LOGI(TAG, "Vyrobni cislo %s nacteno z nvs", vyrobnicislo);
+        ESP_LOGI(TAG, "Production number %s read from nvs", vyrobnicislo);
         // ESP_LOGI(TAG, "Heslo pro servis nacteno: %s", users[1].password);
     } else {
-        ESP_LOGI(TAG, "Vyrobni cislo nenacteno, standardni %s", vyrobnicislo);
+        ESP_LOGI(TAG, "Production number not read, standard %s", vyrobnicislo);
         // zapis standardního výrobního čísla do nvs
         err = nvs_set_str(nvs_handle_storage, "production_num", vyrobnicislo);
         if (err == ESP_OK) {
         } else {
             ESP_LOGE(TAG,
-                     "Chyba pri zapisu standardniho vyrobniho cisla do nvs");
+                     "Error writing the standard production number to nvs");
         }
     }
     /* If device is not yet provisioned or reprovisioning button pressed long,
@@ -1099,7 +1089,7 @@ void app_main(void) {
                             configMAX_PRIORITIES - 3, NULL, 1);
 
     // everything processed, turn status led green
-    ESP_LOGI(TAG, "Inicializace dokoncena, zahajen hlavni cyklus aplikace");
+    ESP_LOGI(TAG, "Inicialization finished, starting the main app cycle");
 
     // initi some statuses
     wifiapst = WIFIAPST_NORMAL;
@@ -1160,7 +1150,8 @@ void app_main(void) {
         }
 
         // keepalive status message
-        ESP_LOGI(TAG,"ip: %s, MAC: %s, "
+        ESP_LOGI(TAG,
+                 "ip: %s, MAC: %s, "
                  "vyr.c.: %s, chyby: comm=%d "
                  "wifi_prov=%d "
                  "wifi_conn=%d",
@@ -1170,39 +1161,8 @@ void app_main(void) {
 
         // development - helper logging
 
-        /*
-         (apst != APST_SET_GENERAL && apst != APST_SET_TERM
-         && apst != APST_SET_TIMEOUT) {
-         */
         ESP_LOGI(TAG, "===================== apst:%d  wifiapst:%d", apst,
                  wifiapst);
-
-        /*
-      ESP_LOGI(TAG, "stavRelat 0x%X", stavRelat);
-      */
-        /*
-         ESP_LOGI(TAG, "typSauny %d", typSauny);
-         */
-        /*
-        ESP_LOGI(TAG, "battZmerena %d", battZmerena);
-        ESP_LOGI(TAG, "battVolt %d", battVolt);
-        */
-
-        /*
-        ESP_LOGI(TAG, "setup_korekceCidla: %d", setup_korekceCidla);
-        ESP_LOGI(TAG, "setup_nastaveniKamen: %d", setup_nastaveniKamen);
-        ESP_LOGI(TAG, "setup_typSauny: %d", setup_typSauny);
-        ESP_LOGI(TAG, "setup_stridaniFazi: %d", setup_stridaniFazi);
-        ESP_LOGI(TAG, "setup_blokovaniSvetla: %d", setup_blokovaniSvetla);
-        ESP_LOGI(TAG, "setup_nastavenaTemp: %d", setup_nastavenaTemp);
-        ESP_LOGI(TAG, "setup_dalkoveOvladani: %d", setup_dalkoveOvladani);
-        ESP_LOGI(TAG, "setup_parniEsence: %d", setup_parniEsence);
-        ESP_LOGI(TAG, "setup_intervalEsence: %d", setup_intervalEsence);
-        ESP_LOGI(TAG, "setup_typSpusteni: %d", setup_typSpusteni);
-        ESP_LOGI(TAG, "setup_celkovaDobaProvozu: %lu",
-                 setup_celkovaDobaProvozu);
-        ESP_LOGI(TAG, "setup_provozniDoba: %d", setup_provozniDoba);
-*/
 
         // next tick pause+
         vTaskDelay(4000 / portTICK_PERIOD_MS);

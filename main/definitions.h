@@ -1,11 +1,7 @@
 // verze firmware:
-#define FW_VERSION "s150u_wifi_1_18"
+#define FW_VERSION "automato_1_0"
 
 
-/* Change log
-
-
-*/
 
 #ifndef MIN
 # define MIN(a,b) ((a) < (b) ? (a) : (b))
@@ -20,7 +16,7 @@
  */
 
 // default passwords
-#define INIT_PASSWORD_USER "0000"
+#define INIT_PASSWORD_AUTOMATO "0000"
 #define INIT_PASSWORD_ADMIN "1111"
 
 // jednoznačné device id:
