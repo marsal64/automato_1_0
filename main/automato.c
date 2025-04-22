@@ -720,7 +720,7 @@ void receive_task(void* pvParameters) {
 
         // timeout?
         if (!rec_q) {
-            ESP_LOGE(TAG, "Timeout komunikace se zakladni jednotkou");
+            ESP_LOGI(TAG, "Timeout komunikace RS485");
             comm_status = COMST_TIMEOUT;
 
             // pro jistotu
@@ -736,7 +736,7 @@ void receive_task(void* pvParameters) {
 
         // something other than data?
         if (qi.code != UART_DATA) {
-            ESP_LOGE(TAG, "Nestandardni udalost pri prijimani zprav, kod: %d",
+            ESP_LOGE(TAG, "Non standard event during messages receive, code: %d",
                      qi.code);
             hexlogger((uint8_t*)qi.message, qi.length);
             comm_status = COMST_ERR;
@@ -763,7 +763,7 @@ void receive_task(void* pvParameters) {
         // crc = 0?
         if (crc) {
             // crc error
-            ESP_LOGE(TAG, "Nespravny kontrolni soucet zpravy:");
+            ESP_LOGE(TAG, "Incorrect control summ of message:");
             hexlogger((uint8_t*)qi.message, qi.length);
             comm_status = COMST_ERR;
             uart_flush(RS485_UART_PORT);

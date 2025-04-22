@@ -1,88 +1,88 @@
 /*
- * s150u_wifi URL handlers
+ * URL handlers
  */
 
-// Root handler
+// root handler
 esp_err_t root_get_handler(httpd_req_t *req) {
-    // debug
-    // ESP_LOGI(TAG, "apst:%d", apst);
-    // ESP_LOGI(TAG, "current_user_id:%d  %s ",current_user_id,
-    // users[current_user_id].username);
-
-    // authentication verification part /////////
+    /* 1. Authorisation -----------------------------------------------------*/
     char cookie_value[128];
     if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) ||
         strcmp(cookie_value, "1") != 0 || current_user_id == -1) {
-        // Redirect to login if not authenticated
         httpd_resp_set_status(req, "307 Temporary Redirect");
         httpd_resp_set_hdr(req, "Location", "/login");
         httpd_resp_send(req, NULL, 0);
         return ESP_OK;
     }
 
-    // construct response string
-    char resp_str[RESP_SIZE];
-    strcpy(resp_str,
-
-           "<!DOCTYPE html>"
-           "<html lang=\"cs\">"
-           "<head>"
-           "<title>S150U-WIFI</title>"
-           "<style>"
-
-           "body {"
-           "  font-family: Arial, sans-serif;"
-           //"  background-color: #E0E0E0;"
-           "}");
-    strcat(resp_str,
-           "</body>"
-           "</html>");
-
-    httpd_resp_send(req, resp_str, HTTPD_RESP_USE_STRLEN);
-    return ESP_OK;
-}
-
-// Login form handler
-esp_err_t login_get_handler(httpd_req_t *req) {
-    const char *login_form =
+    /* 2. Build HTML --------------------------------------------------------*/
+    char html[RESP_SIZE];
+    size_t n = snprintf(
+        html, sizeof(html),
         "<!DOCTYPE html>"
         "<html lang=\"cs\">"
         "<head>"
-        "<title>S150U-WIFI</title>"
-        "<meta charset=\"UTF-8\">"
-        "<style>"
-        "body {"
-        "  font-family: Arial, sans-serif;"
-        //					"  background-color: #E0E0E0;"
-        "  display: flex;"
-        "  justify-content: center;"
-        "  align-items: center;"
-        "  height: 100vh;"
-        "  margin: 0;"
-        "}"
-        "form {"
-        "  border: 1px solid #ddd;"
-        "  padding: 20px;"
-        "  box-shadow: 2px 2px 5px rgba(0,0,0,0.2);"
-        "}"
-        "</style>"
-        "</head>"
-        "<body>"
-        "<form action=\"/login\" method=\"post\">"
-        "<img src='/logo' alt='automato' style='width:15%; height:auto;'>"
-        "<h2>Automato - přihlášení obsluhy</h2>"
-        "Uživatelské jméno:<br> <input type=\"text\" name=\"username\" "
-        "maxlength=\"32\" ><br>"
-        "<br>"
-        "Heslo:<br> <input type=\"password\" name=\"password\" "
-        "maxlength=\"32\"><br>"
-        "<br>"
-        "<input type=\"submit\" value=\"Přihlášení\">"
-        "</form>"
-        "</body></html>";
-    httpd_resp_send(req, login_form, HTTPD_RESP_USE_STRLEN);
+        "  <meta charset=\"UTF-8\">"
+        "  <title>%s</title>"
+        "  <style>"
+        "    body   { margin:0; font-family:Arial,sans-serif; }"
+        "    header { display:flex; align-items:center; "
+        "justify-content:space-between;"
+        "             padding:10px 40px; box-shadow:0 2px 4px rgba(0,0,0,.1); }"
+        "    button { padding:8px 14px; font-size:1rem; cursor:pointer; }"
+        "  </style>"
+        "  <script>function logoff(){window.location.href='/logout';}</script>"
+        "</head><body>"
+        "<header>"
+        "  <img src=\"/logo\" alt=\"%s\" style=\"height:48px;\">"
+        "  <button onclick=\"logoff()\">%s</button>"
+        "</header>"
+        "</body></html>",
+        t("Automato"), /* <title>            */
+        t("Automato"), /* <img alt>          */
+        t("Odhlásit")  /* button             */
+    );
+
+    httpd_resp_send(req, html, n);
     return ESP_OK;
 }
+
+esp_err_t login_get_handler(httpd_req_t *req) {
+    char html[RESP_SIZE];
+    size_t n = snprintf(
+        html, sizeof(html),
+        "<!DOCTYPE html>"
+        "<html lang=\"cs\">"
+        "<head>"
+        "  <meta charset=\"UTF-8\">"
+        "  <title>%s</title>"
+        "  <style>"
+        "    body  { font-family:Arial,sans-serif; display:flex; "
+        "justify-content:center; align-items:center; height:100vh; margin:0; }"
+        "    form  { border:1px solid #ddd; padding:20px; box-shadow:2px 2px "
+        "5px rgba(0,0,0,0.2); }"
+        "  </style>"
+        "</head><body>"
+        "<form action=\"/login\" method=\"post\">"
+        "  <img src=\"/logo\" alt=\"%s\" style=\"width:15%%; height:auto;\">"
+        "  <h2>%s</h2>"
+        "  %s:<br><input type=\"text\" name=\"username\" "
+        "maxlength=\"32\"><br><br>"
+        "  %s:<br><input type=\"password\" name=\"password\" "
+        "maxlength=\"32\"><br><br>"
+        "  <input type=\"submit\" value=\"%s\">"
+        "</form></body></html>",
+        t("Automato"),                      /* <title>            */
+        t("Automato"),                      /* logo alt           */
+        t("Automato - přihlášení obsluhy"), /* heading            */
+        t("Uživatelské jméno"),             /* label – username   */
+        t("Heslo"),                         /* label – password   */
+        t("Přihlášení")                     /* submit             */
+    );
+
+    httpd_resp_send(req, html, n);
+    return ESP_OK;
+}
+
 
 // Login processing handler
 esp_err_t login_post_handler(httpd_req_t *req) {
@@ -155,26 +155,26 @@ esp_err_t login_post_handler(httpd_req_t *req) {
         httpd_resp_send(req, NULL, 0);  // Send empty response for redirection
     } else {
         // Unsuccessfull login
-        const char *resp_str =
-            "<!DOCTYPE html>"
-            "<html lang=\"cs\">"
-            "<head>"
-            "<title>S150U-WIFI</title>"
-            "<meta charset=\"UTF-8\">"
-            "<meta http-equiv=\"refresh\" content=\"2;url=/login\">"
-            "<title>S150U-WIFI redir</title>"
-            "</head>"
-            "<style>"
-            "body {"
-            "  font-family: Arial, sans-serif;"
-            //						"  background-color:
-            // #E0E0E0;"
-            "}"
-            "</style>"
-            "<body><h2>Sauna S150U-WIFI</h2>"
-            "Neúspěšné přihlášení"
-            "</body>"
-            "</html>";
+        char resp_str[512];
+        size_t n =
+            snprintf(resp_str, sizeof(resp_str),
+                     "<!DOCTYPE html>"
+                     "<html lang=\"cs\">"
+                     "<head>"
+                     "<title>Automato</title>"
+                     "<meta charset=\"UTF-8\">"
+                     "<meta http-equiv=\"refresh\" content=\"2;url=/login\">"
+                     "<title>Automato redir</title>"
+                     "</head>"
+                     "<style>"
+                     "body {"
+                     "  font-family: Arial, sans-serif;"
+                     "}"
+                     "</style>"
+                     "<body><h2>Automato</h2>%s"
+                     "</body>"
+                     "</html>",
+                     t("Neúspěšné přihlášení"));
 
         // Send response
         httpd_resp_send(req, resp_str, HTTPD_RESP_USE_STRLEN);
@@ -204,7 +204,7 @@ esp_err_t data_get_handler(httpd_req_t *req) {
 
     // JSON start
     strcpy(data, "{");
-    
+
     strcat(data, "}");
 
     httpd_resp_send(req, data, strlen(data));
@@ -261,7 +261,7 @@ httpd_handle_t start_webserver(void) {
                                 .handler = data_get_handler,
                                 .user_ctx = NULL};
         httpd_register_uri_handler(server, &data_uri);
-        
+
         httpd_uri_t login_uri = {.uri = "/login",
                                  .method = HTTP_GET,
                                  .handler = login_get_handler,
@@ -287,7 +287,7 @@ httpd_handle_t start_webserver(void) {
                                  .user_ctx = NULL};
         httpd_register_uri_handler(server, &image_uri);
 
-                                     
+
         // favicon handler
         httpd_uri_t favicon_uri = {.uri = "/favicon.ico",
                                    .method = HTTP_GET,

@@ -6,7 +6,8 @@
 typedef enum { LANG_CZ = 0, LANG_EN, LANG_COUNT } LANGUAGE;
 
 // Active language (default Czech)
-static uint8_t gst_lang = LANG_CZ;
+// static uint8_t gst_lang = LANG_CZ;
+static uint8_t gst_lang = LANG_EN;
 
 // translation table
 typedef struct {
@@ -14,10 +15,20 @@ typedef struct {
     char en[MAX_TRANS_STRING_EN_LEN];
 } translation;
 
-static const translation cz_en[] = {{"Vypnuto", "Off"},
-                                    {"Zapnuto", "On"},
-                                    /* sentinel – signals end of table */
-                                    {"", ""}};
+static const translation cz_en[] = {
+    {"Vypnuto", "Off"},
+    {"Zapnuto", "On"},
+    {"Odhlásit", "Logoff"},
+    {"Přihlásit", "Login"},
+    {"Neúspěšné přihlášení", "Unsuccessful login"},
+    {"Automato - přihlášení obsluhy","Automato - login"},
+    {"Uživatelské jméno","Username"},
+    {"Heslo", "Password"},
+    {"Automato", "Automato"},
+    {"Automato - přihlášení obsluhy", "Automato - operator login"},
+    {"Automato - přihlášení", "Automato - login"},
+    /* sentinel – signals end of table */
+    {"", ""}};
 
 // translation function
 // returns English text for the given Czech text
