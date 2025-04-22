@@ -3,7 +3,8 @@
  */
 
 // root handler
-esp_err_t root_get_handler(httpd_req_t *req) {
+esp_err_t root_get_handler(httpd_req_t *req)
+{
     /* 1. Authorisation -----------------------------------------------------*/
     char cookie_value[128];
     if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) ||
@@ -14,10 +15,29 @@ esp_err_t root_get_handler(httpd_req_t *req) {
         return ESP_OK;
     }
 
-    /* 2. Build HTML --------------------------------------------------------*/
+    /* 2. Build status line ------------------------------------------------*/
+    time_t now;  time(&now);
+    struct tm tm_info;  localtime_r(&now, &tm_info);
+
+    static const char *dow_cz[] = {"Ne","Po","Út","St","Čt","Pá","So"};
+    static const char *dow_en[] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
+
+    const char *dow = (gst_lang == LANG_CZ) ? dow_cz[tm_info.tm_wday]
+                                            : dow_en[tm_info.tm_wday];
+
+    char timestr[64];
+    strftime(timestr, sizeof(timestr), "%d.%m.%Y&nbsp;%H:%M:%S", &tm_info);
+
+    char statusline[256];
+    snprintf(statusline, sizeof(statusline),
+             "<span class=\"date\">%s</span> &nbsp;&nbsp;&nbsp;"
+             "<span class=\"weekday\">%s</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+             "<span class=\"ip\">%s</span>",
+             timestr, dow, ipaddress);
+
+    /* 3. Build HTML --------------------------------------------------------*/
     char html[RESP_SIZE];
-    size_t n = snprintf(
-        html, sizeof(html),
+    size_t n = snprintf(html, sizeof(html),
         "<!DOCTYPE html>"
         "<html lang=\"cs\">"
         "<head>"
@@ -25,26 +45,34 @@ esp_err_t root_get_handler(httpd_req_t *req) {
         "  <title>%s</title>"
         "  <style>"
         "    body   { margin:0; font-family:Arial,sans-serif; }"
-        "    header { display:flex; align-items:center; "
-        "justify-content:space-between;"
-        "             padding:10px 40px; box-shadow:0 2px 4px rgba(0,0,0,.1); }"
-        "    button { padding:8px 14px; font-size:1rem; cursor:pointer; }"
+        "    header { display:flex; align-items:center; padding:10px 20px;"
+        "             box-shadow:0 2px 4px rgba(0,0,0,.1); }"
+        "    header img { height:48px; }"
+        "    .status { flex:1; text-align:center; font-size:.95rem; }"
+        "    .status .date { font-weight:600; }"
+        "    .status .weekday { margin:0 6px; color:#555; }"
+        "    .status .ip { font-family:monospace; color:#006; }"
+        "    button.logout { padding:4px 10px; font-size:.8rem; cursor:pointer; }"
         "  </style>"
         "  <script>function logoff(){window.location.href='/logout';}</script>"
         "</head><body>"
         "<header>"
-        "  <img src=\"/logo\" alt=\"%s\" style=\"height:48px;\">"
-        "  <button onclick=\"logoff()\">%s</button>"
+        "  <img src=\"/logo\" alt=\"%s\">"
+        "  <span class=\"status\">%s</span>"
+        "  <button class=\"logout\" onclick=\"logoff()\">%s</button>"
         "</header>"
         "</body></html>",
-        t("Automato"), /* <title>            */
-        t("Automato"), /* <img alt>          */
-        t("Odhlásit")  /* button             */
+        t("Automato"),         /* <title>          */
+        t("Automato"),         /* logo alt         */
+        statusline,             /* fancy status     */
+        t("Odhlásit")          /* button label     */
     );
 
     httpd_resp_send(req, html, n);
     return ESP_OK;
 }
+
+
 
 esp_err_t login_get_handler(httpd_req_t *req) {
     char html[RESP_SIZE];
