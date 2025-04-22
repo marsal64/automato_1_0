@@ -3,8 +3,8 @@
  */
 
 // avoid unused variables warnings
-#pragma GCC diagnostic ignored "-Wunused-variable"
-#pragma GCC diagnostic ignored "-Wunused-function"
+//#pragma GCC diagnostic ignored "-Wunused-variable"
+//#pragma GCC diagnostic ignored "-Wunused-function"
 
 ////////////////////////
 #include "definitions.h"
@@ -87,22 +87,6 @@ char ipaddress[64];
 static time_t now_sntp = 0;
 static struct tm timeinfo_sntp = {0};
 
-// time for transfer
-static struct tm timeinfo_transfer = {0};
-
-
-
-// způsob nastavení času
-enum TYP_NAST_DATCAS {
-    DATCAS_NENASTAVOVAT,
-    DATCAS_PEVNY,
-    DATCAS_INTERNET,
-    DATCAS_NUMSTATES
-};
-static char typy_datcas[DATCAS_NUMSTATES][100] = {
-    "Neměnit čas a datum (ponechat stávající)",
-    "Pevné nastavení času a data dle zadání výše (sekundy=0)",
-    "Synchronizovat čas a datum z internetu (CEST)"};
 
 
 // Buffer proměnné pro nastavení času
@@ -208,6 +192,7 @@ enum WIFIAPST_states_list {
 };
 static int8_t wifiapst;
 
+
 // credential vars
 typedef struct {
     char username[33];
@@ -218,17 +203,6 @@ typedef struct {
 static user_credentials_t users[] = {{"automato", INIT_PASSWORD_AUTOMATO},
                                      {"admin", INIT_PASSWORD_ADMIN}};
 
-// t_ structure
-typedef struct {
-    uint8_t priority;  // 0 - lowest
-    char text[500];    // text to be displayed
-} t_item;
-
-// credential definitions static variable
-
-static t_item tt[TEXTITEMS_COUNT];
-
-// assign default textitem values
 
 // current user
 // -1 - undefined
@@ -244,7 +218,7 @@ typedef struct {
 
 named_variable_t run_vars[NUMVALUES];
 
-static const char* TAG = "S150U-WIFI";
+static const char* TAG = "AUTOMATO";
 
 /* Signal Wi-Fi events on this event-group */
 const int WIFI_CONNECTED_EVENT = BIT0;
@@ -599,7 +573,6 @@ static void uart_event_task(void* pvParameters) {
     // rx queue
     rx_queue_item qi;
 
-    char mes_buf[120];
 
     for (;;) {
         // Waiting for UART event.
@@ -1152,7 +1125,7 @@ void app_main(void) {
         // keepalive status message
         ESP_LOGI(TAG,
                  "ip: %s, MAC: %s, "
-                 "vyr.c.: %s, chyby: comm=%d "
+                 "prod.num.: %s, errors: comm=%d "
                  "wifi_prov=%d "
                  "wifi_conn=%d",
                  ipaddress, mac_string, vyrobnicislo, comm_status, !provisioned,
