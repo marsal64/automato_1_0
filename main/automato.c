@@ -38,10 +38,6 @@
 // Výrobní číslo default
 char vyrobnicislo[50] = "20240622-001";
 
-// global static "require setup" variable
-static bool require_setup = false;
-static bool last_setup = false;
-
 // global static "provisioned" variable
 static bool provisioned = false;
 // "connected to wifi" status global variable
@@ -70,73 +66,13 @@ typedef struct {
 
 static QueueHandle_t tx_queue;
 
-// List of accepted messages lengths
-static uint8_t mes_lengths[NUM_CHECKS_MESS_LENGTHS] = {
-    MESS_LENGTH_GENERAL, MESS_LENGTH_WIFI, 7, 6, 8, 10, 21};
-
-// message types
-// plain wifi poll
-char* MES_PLAINWIFIPOLL = "\0\1\0";
-char* MES_PLAINWIFIPOLL_RESPONSE = "\1\0\3\0";
 
 // Wifi reconnect constants
 static int wifi_retry_count = 0;
 
 //// S150U variables start ////////////////////
 
-// setup variables
-int8_t setup_korekceCidla;  // přichází ve formátu +127
-uint8_t setup_nastaveniKamen;
-uint8_t setup_typSauny;
-uint8_t setup_stridaniFazi;
-uint8_t setup_blokovaniSvetla;
-uint8_t setup_nastavenaTemp;
-uint8_t setup_dalkoveOvladani;
-uint8_t setup_parniEsence;
-uint8_t setup_intervalEsence;
-uint8_t setup_typSpusteni;
-uint32_t setup_celkovaDobaProvozu;
-uint8_t setup_provozniDoba;
 
-// standard variables
-static uint8_t systemONOFF;    // 0 2 (3) 1
-static uint8_t hotRUN;         // 0 sauna ceka na spusteni 1 sauna spustena
-static uint8_t stavRelat;      // stav vsech relatek na hlavni desce
-static uint8_t typSauny;       // 0 1 2 (s RH modulem 3 4 5 6)
-static uint8_t typSpusteni;    // 0 standard, 1 denni, 2 tydenni
-static uint8_t battZmerena;    // 1 - byla zmerena baterie RTC
-static uint16_t battVolt;      // jeji napeti v milivoltech uint16_t
-static uint8_t nastavenaTemp;  // nastavena teplota ve stupnich uint8_t
-static uint32_t dobaBehu;      // doba behu sauny uint32_t v sekundach
-static int16_t aktTemp;        // aktualni teplota int16 (muze byt i zaporna)
-static uint8_t termState;      // stav termostatu 0 ok, 1 zkrat, 2 odpojeno
-static uint8_t pojTepState;    // 1 - chyba tepelne pojistky
-static uint8_t doorOpen;       // 1 - otevrene dvere
-static uint16_t doorTout;      // cas otevrenych dveri v sekundach
-static uint16_t
-    onTout;  // timeout pro vypnuti pokud neni potvrzeno spusteni sauny
-static uint8_t odlozenyNastaveno;  // 0 - neni nastaveno, 1 je nastaveno
-static uint8_t runFromDO = 0;      // Spusteno z DO 0 - ne 1 - ano
-static uint32_t
-    p_odlozenyCas;  // hodnota odlozeneho startu v sekundach uint32_t
-static uint32_t p_DO_dobaBehuSauny;  // doba behu sauny pri spusteni z dalkoveho
-                                     // ovladani uint32_t
-
-static uint8_t defDefTemp = 80;   // Vychozi teplota
-static uint8_t defMinTemp = 50;   // Minimalni teplota
-static uint8_t defMaxTemp = 120;  // Maximalni teplota
-static uint8_t defMaxTempE;       // Max teplota - vypina pojistka
-
-static uint8_t devActive;   // stav zarizeni bit0=1, bit1=stav extovl, bit2=stav
-                            // wifi, bit3=stav RH
-static uint8_t devRHvalue;  // hodnota z RH cidla
-static uint8_t devRHrelay;  // hodnota pro rele v RH modulu
-static uint8_t parniEsence;     // 0 vypnuto 1-10sec 2 3 4 5 6-trvale zapnuto
-static uint8_t esenceState;     // Aktualni stav esence
-static uint8_t intervalEsence;  // Interval esence v minutach
-static uint8_t state1;          // Status změny teplota provoz 20241220
-static uint8_t state2;          // Status setup 20241220
-//
 typedef struct {
     uint8_t sec;
     uint8_t min;
@@ -166,39 +102,7 @@ static struct tm timeinfo_sntp = {0};
 // time for transfer
 static struct tm timeinfo_transfer = {0};
 
-// typ sauny
-enum TYP_SAUNY {
-    TYP_SAUNY_STD,
-    TYP_SAUNY_INFRA,
-    TYP_SAUNY_PARNI,
-    TYP_SAUNY_RHSUCHA,
-    TYP_SAUNY_RHVLHKA,
-    TYP_SAUNY_RHMOKRA,
-    TYP_SAUNY_RHPARA,
-    TYP_SAUNY_COUNT
-};
 
-static char typy_saun[TYP_SAUNY_COUNT][20] = {"std", "inf", "par", "RHs",
-                                              "RHv", "RHm", "RHp"};
-
-static char typy_saun_long[TYP_SAUNY_COUNT][30] = {
-    "Standardní", "Infrasauna", "Parní",    "RH - suchá",
-    "RH - vlhká", "RH - mokrá", "RH - pára"};
-
-static char typy_saun_minitext[TYP_SAUNY_COUNT][30] = {
-    "Standardní", "Infrasauna", "Parní", "Suchá", "Vlhká", "Mokrá", "Pára"};
-
-
-static char typy_saun_long_graph[TYP_SAUNY_COUNT][50] = {
-    "Standardní", "Infrasauna", "Parní",       "RH: 💧",
-    "RH: 💧💧",   "RH: 💧💧💧", "RH: 💧💧💧💧"};
-
-
-// proměnná pro nastavování RH při startu
-uint8_t p_rh_set = TYP_SAUNY_RHSUCHA;
-
-// indikátor označující, že nastavení RH už proběhlo
-uint8_t p_rh_set_done = 0;
 
 // způsob nastavení času
 enum TYP_NAST_DATCAS {
@@ -212,63 +116,6 @@ static char typy_datcas[DATCAS_NUMSTATES][100] = {
     "Pevné nastavení času a data dle zadání výše (sekundy=0)",
     "Synchronizovat čas a datum z internetu (CEST)"};
 
-// způsob nastavení kamen (1 nebo 3 fáze)
-enum TYP_NAST_KAMEN {
-    KAMNANAST_JEDNOFAZOVA,
-    KAMNANAST_TROJFAZOVA,
-    KAMNANAST_NUMSTATES
-};
-static char typy_nastaveni_kamen[KAMNANAST_NUMSTATES][50] = {"1 Fáze",
-                                                             "3 Fáze"};
-
-// parní esence
-enum PARNIESENCE {
-    ESENCE_VYPNUTO,
-    ESENCE_10,
-    ESENCE_20,
-    ESENCE_30,
-    ESENCE_40,
-    ESENCE_50,
-    ESENCE_ZAPNUTO,
-    ESENCE_NUMSTATES
-};
-static char typy_parniesence[ESENCE_NUMSTATES][50] = {
-    "Vypnuto",   "10 sekund", "20 sekund",     "30 sekund",
-    "40 sekund", "50 sekund", "Trvale zapnuto"};
-
-
-// dálkové ovládání
-enum DALKOVEOVLADANI {
-    DALKOVEOVLADANI_NE,
-    DALKOVEOVLADANI_ANO,
-    DALKOVEOVLADANI_NUMSTATES
-};
-char typy_dalkoveovladani[DALKOVEOVLADANI_NUMSTATES][10] = {"Ne", "Ano"};
-
-// střídání fází
-enum STRIDANIFAZI { STRIDANIFAZI_NE, STRIDANIFAZI_ANO, STRIDANIFAZI_NUMSTATES };
-char typy_stridanifazi[STRIDANIFAZI_NUMSTATES][10] = {"Ne", "Ano"};
-
-
-// blokování světla
-enum BLOKOVANISVETLA {
-    BLOKOVANISVETLA_NE,
-    BLOKOVANISVETLA_ANO,
-    BLOKOVANISVETLA_NUMSTATES
-};
-char typy_blokovanisvetla[BLOKOVANISVETLA_NUMSTATES][10] = {"Ne", "Ano"};
-
-// režim sauny
-enum TYPSPUSTENI_SAUNY {
-    TYPSPUSTENI_SAUNY_NORMALNI,
-    TYPSPUSTENI_SAUNY_DENNI,
-    TYPSPUSTENI_SAUNY_TYDENNI,
-    TYPSPUSTENI_SAUNY_NUMSTATES
-};
-static char typy_spusteni_sauny[TYPSPUSTENI_SAUNY_NUMSTATES][100] = {
-    "Normální", "Denní (odložený start)", "Týdenní"};
-
-
 
 // Buffer proměnné pro nastavení času
 uint16_t year_s = 0;
@@ -280,79 +127,8 @@ uint8_t min_s = 0;
 uint8_t sec_s = 0;
 
 
-//////// setup helper variables ////////////////
-static uint8_t nastavenaTemp_set;  // nastavena teplota ve stupnich uint8_t
-//////// setup helper variables ////////////////
-static uint32_t p_odlozenyCas_set;  // nastavena teplota ve stupnich uint8_t
-
-// static helper
-static uint32_t dobaBehu_set;
-
 // nvs flash handler
 static nvs_handle_t nvs_handle_storage;
-
-// "set" proměnné
-// nastavují se v případě požadavku na přenos nějakého údaje do základní
-// jednotky
-uint8_t mainset_on = 0;
-uint8_t mainset_off = 0;
-uint8_t mainset_lighton = 0;
-uint8_t mainset_lightoff = 0;
-uint8_t mainset_hoton = 0;
-uint8_t mainset_sendsetup = 0;
-uint8_t mainset_temp = 0;
-uint32_t mainset_dobabehu = 0;
-uint32_t mainset_odlocas = 0;
-
-
-// reportovaci bajty - probíhá nastavení
-uint8_t mainset_report_odlocas = 0;   // odložený čas
-uint8_t mainset_report_dobabehu = 0;  // doba běhu
-uint8_t mainset_report_setup = 0;     // setup
-uint8_t mainset_report_temp = 0;      // teplota
-uint8_t mainset_report_rh = 0;        // nastavování RH
-
-// nastavení synchronizace času
-uint8_t mainset_synchrocas = 0;
-
-// global variables used for parsing when "Confirm" pressed
-uint8_t hours_ret = 0;
-uint8_t minutes_ret = 0;
-uint8_t date_ret = 0;
-uint8_t month_ret = 0;
-uint16_t year_ret = 0;
-uint8_t datacas_typ_ret = 0;
-uint8_t nastavenikamen_ret = 0;
-uint8_t nastavenaTemp_ret;
-uint32_t dobaBehu_ret;
-uint8_t typSauny_ret;
-uint8_t korekce_cidla_ret;
-uint8_t parniEsence_ret = 0;      // 0 vypnuto 1-10sec 2 3 4 5 6-trvale zapnuto
-uint8_t dalkoveOvladani_ret = 0;  // 0 - ne, 1 - ano
-uint8_t intervalEsence_ret;       // Interval esence v minutach
-uint8_t blokovaniSvetla_ret = 0;  // Blokování světla
-uint8_t typspusteni_sauny_ret;    // 0 normální, 1 denní, 2 týdenní
-uint8_t stridanifazi_ret;         // 0 normální, 1 denní, 2 týdenní
-char password_sauna_ret[33] = "";
-char password_servis_ret[33] = "";
-
-// buffer variables for setup data sending
-uint8_t korekce_cidla_buf = 0;
-uint8_t nastavenikamen_buf = 0;
-uint8_t typSauny_buf = 0;
-uint8_t stridanifazi_buf = 0;
-uint8_t blokovaniSvetla_buf = 0;
-uint8_t dalkoveOvladani_buf = 0;
-uint8_t parniEsence_buf = 0;
-uint8_t intervalEsence_buf = 0;
-uint8_t typspusteni_sauny_buf = 0;
-
-// helper variables for time transfer
-uint8_t hours_preps = 0;
-uint8_t minutes_preps = 0;
-uint8_t date_preps = 0;
-uint8_t month_preps = 0;
-uint16_t year_preps = 0;
 
 
 // static variables for RX receive
@@ -825,297 +601,6 @@ void hexlogger(uint8_t* dt, int lendt) {
     ESP_LOGI(TAG, "%s", ldata);
 };
 
-/**
- * @brief parse "general poll"
- */
-int recparse_general(uint8_t* dt, int lendt) {
-    int retstatus = 0;
-    // ESP_LOGI(TAG, "recparse_general - Receiving/parsing general response");
-
-    // copy just for convenience (description match)
-    memcpy(dt, &dt[5], lendt - 5);
-    // hexlogger(dt, lendt);
-    // parse
-    systemONOFF = dt[0];
-    hotRUN = dt[1];
-    stavRelat = dt[2];
-    typSauny = dt[3];
-    typSpusteni = dt[4];
-    battZmerena = dt[5];
-    battVolt = *(uint16_t*)&dt[6];
-    nastavenaTemp = dt[8];
-    dobaBehu = *(uint32_t*)&dt[9];
-    aktTemp = *(uint16_t*)&dt[13];
-    termState = dt[15];
-    pojTepState = dt[16];
-    doorOpen = dt[17];
-    doorTout = *(uint16_t*)&dt[18];
-    onTout = *(uint16_t*)&dt[20];
-    odlozenyNastaveno = dt[22];
-    runFromDO = dt[23];
-    p_odlozenyCas = *(uint32_t*)&dt[24];
-    p_DO_dobaBehuSauny = *(uint32_t*)&dt[28];
-    defDefTemp = dt[32];
-    defMinTemp = dt[33];
-    defMaxTemp = dt[34];
-    defMaxTempE = dt[35];
-    devActive = dt[36];
-    devRHvalue = dt[37];
-    devRHrelay = dt[38];
-    parniEsence = dt[39];
-    esenceState = dt[40];
-    intervalEsence = dt[41];
-    btime.sec = dt[42];
-    btime.min = dt[43];
-    btime.hour = dt[44];
-    // calculate day of week (1 - Sunday)
-    btime.wDay = day_of_week(btime.year + 2000, btime.month, btime.date);
-    btime.date = dt[46];
-    btime.month = dt[47];
-    btime.year = dt[48];
-    state1 = dt[49];
-    state2 = dt[50];
-
-
-    // cas ze sauny
-    snprintf(saunacas_string, sizeof(saunacas_string),
-             "%d.%d.%d %02d:%02d:%02d (%s)", btime.date, btime.month,
-             btime.year + 2000, btime.hour, btime.min, btime.sec,
-             translatedays[btime.wDay]);
-    // ESP_LOGI(TAG, "'%s'", saunacas_string);
-
-    // set apst
-    if (!systemONOFF) {
-        apst = APST_OFF;
-    } else if (systemONOFF == 2) {
-        apst = APST_STARTING;
-        // !!!o nenastavuje se odložený čas
-    } else if (systemONOFF == 1 && !hotRUN && state2 == 0) {
-        apst = APST_TO_CONFIRM;
-        // !!!o nastavuje se odložený čas
-    } else if (systemONOFF == 1 && !hotRUN && (state2 & 0x80)) {
-        apst = APST_ODLO;
-    } else if (systemONOFF == 1 && hotRUN) {
-        apst = APST_NORMAL;
-    } else {
-        apst = APST_UNKNOWN;
-    }
-
-    // refresh _report statusůd
-    mainset_report_dobabehu = (wifiapst == WIFIAPST_SET_TIMEOUT);
-    mainset_report_odlocas = (wifiapst == WIFIAPST_SET_ODLO);
-    mainset_report_rh = (wifiapst == WIFIAPST_SET_RH);
-    mainset_report_setup = (wifiapst == WIFIAPST_SET_GENERAL);
-    mainset_report_temp = (wifiapst == WIFIAPST_SET_TERM);
-
-    // Probíhá setup na hlavní jednotce?
-    if (dt[49] & 0x08) {  // bit3
-        last_setup = true;
-    } else {
-        // no setup info - was previously?
-        if (last_setup) {
-            // was previously - require sending setup information
-            require_setup = true;
-            last_setup = false;
-        }
-    }
-
-    return retstatus;
-}
-
-/**
- * @brief react to "wifi unit poll""
- */
-int react_to_wifi_rx_message(char* message, int len) {
-    // Expect OK
-    int retstatus = 0;
-    // newly constructed output message:
-    tx_queue_item mo;
-
-    if (message[3] == 0) {  // jde o "standardní" info
-        // plain WiFi unit poll, start to construct the response
-        // setup to send needed?
-        if (require_setup) {
-            memcpy(mo.message, (uint8_t[]){1, 2, 3, 0x20, 0, 0}, 6);
-            mo.length = 6;  // length without crc
-        } else if (mainset_report_rh) {
-            memcpy(mo.message, (uint8_t[]){1, 2, 3, 4, 1, 0x08}, 6);
-            mo.length = 6;  // length: without crc, with data
-        } else if (mainset_report_dobabehu) {
-            memcpy(mo.message, (uint8_t[]){1, 2, 3, 4, 1, 0x40}, 6);
-            mo.length = 6;  // length: without crc, with data
-        } else if (mainset_report_temp) {
-            memcpy(mo.message, (uint8_t[]){1, 2, 3, 4, 1, 0x80}, 6);
-            mo.length = 6;  // length: without crc, with data
-        } else if (mainset_report_setup) {
-            memcpy(mo.message, (uint8_t[]){1, 2, 3, 4, 1, 0x20}, 6);
-            mo.length = 6;  // length: without crc, with data
-        } else if (mainset_report_odlocas) {
-            memcpy(mo.message, (uint8_t[]){1, 2, 3, 4, 1, 0x10}, 6);
-            mo.length = 6;  // length: without crc, with data
-        } else if (mainset_odlocas) {
-            // second parameter - data length + 1
-            memcpy(mo.message, (uint8_t[]){1, 5, 3, 0x14, 1}, 5);
-            memcpy(&mo.message[5], &mainset_odlocas, 4);
-            mainset_odlocas = 0;  // nebude se potvrzovat, vynuluj (předpoklad
-                                  // úspěšného odeslání)
-            mo.length = 6 + 4 - 1;
-        } else if (mainset_synchrocas) {
-            // second parameter - data length + 1
-            memcpy(mo.message, (uint8_t[]){1, 8, 3, 0x13, 1}, 5);
-            mo.message[5] = year_preps - 2000;
-            mo.message[6] = month_preps;
-            mo.message[7] = date_preps;
-            mo.message[8] = day_of_week(year_preps, month_preps, date_preps);
-            mo.message[9] = hours_preps;
-            mo.message[10] = minutes_preps;
-            mo.message[11] = 0;      // seconds to zero
-            mainset_synchrocas = 0;  // nebude se potvrzovat, vynuluj
-                                     // (předpoklad úspěšného odeslání)
-            mo.length = 5 + 7;
-
-        } else if (mainset_hoton) {
-            memcpy(mo.message, (uint8_t[]){1, 2, 3, 2, 1, 1}, 6);
-            mo.length = 6;  // length: without crc, with data
-        } else if (mainset_lighton) {
-            memcpy(mo.message, (uint8_t[]){1, 2, 3, 3, 1, 1}, 6);
-            mo.length = 6;  // length: without crc, with data
-        } else if (mainset_lightoff) {
-            memcpy(mo.message, (uint8_t[]){1, 2, 3, 3, 1, 0}, 6);
-            mo.length = 6;  // length: without crc, with data
-        } else if (mainset_on) {
-            memcpy(mo.message, (uint8_t[]){1, 2, 3, 1, 1, 2}, 6);
-            mo.length = 6;  // length: without crc, with data
-        } else if (mainset_off) {
-            memcpy(mo.message, (uint8_t[]){1, 2, 3, 1, 1, 0}, 6);
-            mo.length = 6;  // length: without crc, with data
-        } else if (mainset_dobabehu) {
-            memcpy(mo.message, (uint8_t[]){1, 5, 3, 0x12, 1}, 5);
-            memcpy(&mo.message[5], &mainset_dobabehu, 4);
-            mo.length = 6 + 4 - 1;  // length: without crc, with data
-        } else if (mainset_temp) {
-            memcpy(mo.message, (uint8_t[]){1, 2, 3, 0x11, 1}, 5);
-            mo.message[5] = mainset_temp;
-            mo.length = 6;  // length: without crc, with data
-        } else if (mainset_sendsetup) {
-            // !!! construct "setup" message to be sent
-            // second parameter - data length + 1
-            memcpy(mo.message, (uint8_t[]){1, 16, 3, 0x20, 1}, 5);
-            mo.message[5] = korekce_cidla_buf + 127;
-            mo.message[6] = nastavenikamen_buf;
-            mo.message[7] = typSauny_buf;
-            mo.message[8] = stridanifazi_buf;
-            mo.message[9] = blokovaniSvetla_buf;
-            mo.message[10] = nastavenaTemp;
-            mo.message[11] = dalkoveOvladani_buf;
-            mo.message[12] = parniEsence_buf;
-            mo.message[13] = intervalEsence_buf;
-            mo.message[14] = typspusteni_sauny_buf;
-            memcpy(&mo.message[16], &setup_celkovaDobaProvozu, 4);
-            mo.message[20] = setup_provozniDoba;  // dle typu sauny
-            mo.length = 5 + 15;                   // length without CRC
-            // no subsequent confirmation, expect to be sent correctly
-
-            mainset_sendsetup = 0;
-
-        } else {
-            // plain response only, no changes requested
-            memcpy(mo.message, MES_PLAINWIFIPOLL_RESPONSE,
-                   MES_PLAINWIFIPOLL_RESPONSE_LEN);
-            mo.length = MES_PLAINWIFIPOLL_RESPONSE_LEN;
-        }
-    } else {
-        // setup?
-        // sekce "očekáváme setup informaci"
-        if (require_setup && message[3] == 0x20) {
-            // přišla setup informace
-            // ESP_LOGI(TAG, "Prijem setup informace");
-            // 0x03 0x10 0x01 0x20 0x00 0x7F 0x01 0x00 0x01 0x00 0x50 0x00 0x00
-            // 0x05 0x00 0x95 0x55 0x00 0x00 0x04 0x08 přepiš
-            //
-            // setup_variables held here for consistency, duplicate variables
-            // then used:
-            setup_korekceCidla = message[5] - 127;
-            setup_nastaveniKamen = message[6];
-            setup_typSauny = message[7];
-            setup_stridaniFazi = message[8];
-            setup_blokovaniSvetla = message[9];
-            setup_nastavenaTemp = message[10];
-            setup_dalkoveOvladani = message[11];
-            setup_parniEsence = message[12];
-            setup_intervalEsence = message[13];
-            setup_typSpusteni = message[14];
-            memcpy(&setup_celkovaDobaProvozu, &message[15], sizeof(uint32_t));
-            setup_provozniDoba = message[19];
-
-            // parsed, now may cleanse "require setup" flag
-            require_setup = 0;
-        }
-        // něco jiného než 0, zde předpokládáme potvrzení příkazu
-
-        // sekce "správné a očekávané potvrzení"
-        else if (mainset_hoton && (message[3] == 2)) {
-            mainset_hoton = 0;
-            ESP_LOGI(TAG, "Potvrzeni hoton z hlavni jednotky OK");
-        } else if (mainset_lighton && (message[3] == 3)) {
-            ESP_LOGI(TAG, "Potvrzeni lighton z hlavni jednotky OK");
-            mainset_lighton = 0;
-        } else if (mainset_lightoff && (message[3] == 3)) {
-            ESP_LOGI(TAG, "Potvrzeni lightoff z hlavni jednotky OK");
-            mainset_lightoff = 0;
-        } else if (mainset_on && (message[3] == 1)) {
-            ESP_LOGI(TAG, "Potvrzeni on z hlavni jednotky OK");
-            mainset_on = 0;
-        } else if (mainset_off && (message[3] == 1)) {
-            ESP_LOGI(TAG, "Potvrzeni off z hlavni jednotky OK");
-            mainset_off = 0;
-        } else if ((mainset_dobabehu > 0) && (message[3] == 0x12)) {
-            ESP_LOGI(TAG, "Potvrzeni dobabehu z hlavni jednotky OK");
-            mainset_dobabehu = 0;
-        } else if (mainset_temp && (message[3] == 0x11)) {
-            ESP_LOGI(TAG, "Potvrzeni teploty z hlavni jednotky OK");
-            mainset_temp = 0;
-        } else {
-            // Nekonzistentní potvrzení
-            ESP_LOGW(TAG, "Nekonzistentni potvzrzeni z hlavni jednotky: %d",
-                     message[3]);
-            hexlogger((uint8_t*)message, len);
-        }
-
-        // zasílá "potvrzení potvrzení"
-        memcpy(mo.message, (uint8_t[]){1, 0, 3, 0}, 4);
-        mo.length = 4;
-    }
-
-    // !!! zruší vše, co bylo případně nastaveno ke změně
-    /*
-    mainset_hoton = 0;
-    mainset_lighton = 0;
-    mainset_lightoff = 0;
-    mainset_on = 0;
-    mainset_off = 0;
-    mainset_dobabehu = 0;
-    mainset_temp = 0;
-  */
-
-    // send the message
-    uint8_t crc = crc_calc((uint8_t*)mo.message, mo.length);
-    mo.message[mo.length] = crc;
-    mo.length = mo.length + 1;  // add crc
-
-    // send message
-    if (xQueueSend(tx_queue, &mo, portMAX_DELAY) != pdPASS) {
-        ESP_LOGE(TAG, "Failed to send data to the rx_internal queue");
-        retstatus = -1;
-    } else {
-        // message sent log (anything but standard response)
-        if (mo.message[1]) {
-            ESP_LOGI(TAG, "Message sent to tx, len %d:", mo.length);
-            hexlogger((uint8_t*)mo.message, mo.length);
-        }
-    }
-    return retstatus;
-}
 
 static QueueHandle_t uart0_queue;
 
@@ -1266,25 +751,6 @@ void receive_task(void* pvParameters) {
         // Data received
         comm_status = COMST_OK;
 
-        // Verify if message length in allowed list
-        uint8_t meslenghtOK = 0;  // assume length not correct
-        for (int i = 0; i < NUM_CHECKS_MESS_LENGTHS; i++)
-            if (mes_lengths[i] == qi.length) {
-                meslenghtOK = 1;
-                break;
-            }
-        // If not correct, try to recover and wait
-        // try to recover and continue
-        if (!meslenghtOK) {
-            ESP_LOGI(TAG, "Zprava s delkou %d ignorovana", qi.length);
-            hexlogger((uint8_t*)qi.message, qi.length);
-
-            uart_flush(RS485_UART_PORT);
-            while (xQueueReceive(rx_queue, &qi, 0) == pdPASS) {
-            }
-            continue;
-        }
-
         // verify CRC
         uint8_t crc = 0;
 
@@ -1308,64 +774,8 @@ void receive_task(void* pvParameters) {
 
         // just for debug:
         // hexlogger((uint8_t*) qi.message, qi.length);
-        // ESP_LOG_BUFFER_HEXDUMP(TAG, qi.message, qi.length, ESP_LOG_INFO);
+        ESP_LOG_BUFFER_HEXDUMP(TAG, qi.message, qi.length, ESP_LOG_INFO);
 
-        // What message?
-        int retm;
-        switch (qi.message[0]) {
-                // WiFi poll packet
-            case RX_ADDRESS_WIFI:
-                // poll for S150U-WiFi or confirmation of set
-                retm = react_to_wifi_rx_message(qi.message, qi.length);
-                if (retm) {
-                    ESP_LOGE(TAG, "Chyba pri zpracovani zpravy pro WiFi");
-                    // snaha o restart
-                    uart_flush(RS485_UART_PORT);
-                    while (xQueueReceive(rx_queue, &qi, 0) == pdPASS) {
-                    }
-                    continue;
-                }
-                // uspesne zpracovano
-                break;
-                // General packet
-            case RX_ADDRESS_GENERAL_PACKET:
-                // only if correct message length
-                if (qi.length != MESS_LENGTH_GENERAL) {
-                    ESP_LOGI(TAG,
-                             "Obecny paket s nespravnou delkou %d, ignorovano",
-                             qi.length);
-
-                    // short diagnostics pulse at the status pin
-                    // gpio_set_level(TEST_UART_GPIO, 1);
-                    // ESP_LOGI(TAG,"///// UART Diag Pulse on");
-                    // gpio_set_level(TEST_UART_GPIO, 0);
-                    // ESP_LOGI(TAG,"///// UART Diag Pulse off");
-
-                    // ESP_LOG_BUFFER_HEXDUMP(TAG, qi.message,
-                    // qi.length,ESP_LOG_INFO);
-                    uart_flush(RS485_UART_PORT);
-                    while (xQueueReceive(rx_queue, &qi, 0) == pdPASS) {
-                    }
-                    continue;
-                }
-                // parsuj
-                retm = recparse_general((uint8_t*)qi.message, qi.length);
-                if (retm) {
-                    ESP_LOGE(TAG, "Chyba pri zpracovani vseobecne zpravy");
-                    // snaha o restart
-                    uart_flush(RS485_UART_PORT);
-                    while (xQueueReceive(rx_queue, &qi, 0) == pdPASS) {
-                    }
-                    continue;
-                } else {
-                    // mark data processing
-                    i_processed_data = 1;
-                }
-                break;
-            default:
-                // something else, ignore
-                break;
-        }
     }
 }
 /**
@@ -1749,16 +1159,11 @@ void app_main(void) {
             led1_status = LED1_STATUS_ERROR;
         }
 
-        // force status update periodically
-        require_setup = true;
-
         // keepalive status message
-        ESP_LOGI(TAG,
-                 "S150U-WiFi typ: %s, typ spusteni: %s, ip: %s, MAC: %s, "
+        ESP_LOGI(TAG,"ip: %s, MAC: %s, "
                  "vyr.c.: %s, chyby: comm=%d "
                  "wifi_prov=%d "
                  "wifi_conn=%d",
-                 typy_saun[typSauny], typSpusteni == 1 ? "norm." : "odl.",
                  ipaddress, mac_string, vyrobnicislo, comm_status, !provisioned,
                  !device_connected);
 
@@ -1772,63 +1177,16 @@ void app_main(void) {
         ESP_LOGI(TAG, "===================== apst:%d  wifiapst:%d", apst,
                  wifiapst);
 
-        ESP_LOGI(TAG, "systemONOFF %d", systemONOFF);
-        ESP_LOGI(TAG, "hotRUN %d", hotRUN);
         /*
       ESP_LOGI(TAG, "stavRelat 0x%X", stavRelat);
       */
         /*
          ESP_LOGI(TAG, "typSauny %d", typSauny);
          */
-        ESP_LOGI(TAG, "typSpusteni %d", typSpusteni);
         /*
         ESP_LOGI(TAG, "battZmerena %d", battZmerena);
         ESP_LOGI(TAG, "battVolt %d", battVolt);
         */
-        /*
-       ESP_LOGI(TAG, "nastavenaTemp %d", nastavenaTemp);
-       ESP_LOGI(TAG, "dobaBehu %ld", dobaBehu);
-      */
-        /*
-         ESP_LOGI(TAG, "aktTemp %d", aktTemp);
-
-         ESP_LOGI(TAG, "termState %d", termState);
-         ESP_LOGI(TAG, "pojTepState %d", pojTepState);
-         ESP_LOGI(TAG, "doorOpen %d", doorOpen);
-         ESP_LOGI(TAG, "doorTout %d", doorTout);
-         ESP_LOGI(TAG, "onTout %d", onTout);
-         */
-        ESP_LOGI(TAG, "odlozenyNastaveno %d", odlozenyNastaveno);
-        /*
-         ESP_LOGI(TAG, "runFromDO %d", runFromDO);
-         */
-        // ESP_LOGI(TAG, "p_odlozenyCas %ld", p_odlozenyCas);
-        // ESP_LOGI(TAG, "p_DO_dobaBehuSauny %lud", p_DO_dobaBehuSauny);
-        /*
-        ESP_LOGI(TAG, "defDefTemp %d", defDefTemp);
-
-         ESP_LOGI(TAG, "defMinTemp %d", defMinTemp);
-         ESP_LOGI(TAG, "defMaxTemp %d", defMaxTemp);
-         ESP_LOGI(TAG, "defMaxTempE %d", defMaxTempE);
-         ESP_LOGI(TAG, "devActive %d", devActive);
-         ESP_LOGI(TAG, "devRHvalue %d", devRHvalue);
-         ESP_LOGI(TAG, "devRHrelay %d", devRHrelay);
-         ESP_LOGI(TAG, "parniEsence %d", parniEsence);
-         ESP_LOGI(TAG, "esenceState %d", esenceState);
-         ESP_LOGI(TAG, "intervalEsence %d", intervalEsence);
-         */
-
-        /*
-       ESP_LOGI(TAG, "sec %d", btime.sec);
-       ESP_LOGI(TAG, "min %d", btime.min);
-       ESP_LOGI(TAG, "hour %d", btime.hour);
-       ESP_LOGI(TAG, "wDAy %d", btime.wDay);
-       ESP_LOGI(TAG, "date %d", btime.date);
-       ESP_LOGI(TAG, "month %d", btime.month);
-       ESP_LOGI(TAG, "year %d", btime.year);
-    */
-        ESP_LOGI(TAG, "state1 0x%02x", state1);
-        ESP_LOGI(TAG, "state2 0x%02x", state2);
 
         /*
         ESP_LOGI(TAG, "setup_korekceCidla: %d", setup_korekceCidla);
