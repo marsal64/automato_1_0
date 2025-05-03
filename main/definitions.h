@@ -19,6 +19,7 @@
 #define INIT_PASSWORD_AUTOMATO "0000"
 #define INIT_PASSWORD_ADMIN "1111"
 
+
 // jednoznačné device id:
 #define deviceid "automato"
 // maximum number of retries when provisioning
@@ -39,7 +40,16 @@
 // Status LED GPIO Yellow
 #define STATUS_LED_GPIO_YELLOW GPIO_NUM_38
 
-// Kolik ms má být Reset tlačítko stisknuto (WIFI_INIT_BUTTON_GPIO), aby se inicializace zahájila
+
+//// ote_read related definitions
+// chunk to read
+#define CHUNK 4096
+// tail to keep and merge with next chunk
+#define TAIL 512
+// interval in minutes after which OTE is regrabbed
+#define MINUTES_TO_GRAB_OTE 1
+
+// How long should be pressed the Reset button (ms) to reset initiation
 #define WIFI_BUTTON_PUSHMS_TO_INIT 3000
 
 // Test signal active when uart error

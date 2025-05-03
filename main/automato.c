@@ -719,20 +719,15 @@ void start_mdns_service() {
     mdns_instance_name_set("Automato");
 }
 
+
 // Task to grab & log the OTE data every minute
-
-/* One read operation = 4 kB                                                 */
-#define CHUNK 4096
-/* Keep last 512 B from previous chunk                                       */
-#define TAIL 512
-
 static void ote_read(void* pv) {
     const char* URL = "https://www.ote-cr.cz/cs/kratkodobe-trhy/elektrina/denni-trh";
-    const TickType_t PERIOD = pdMS_TO_TICKS(10 * 1000);
+    const TickType_t PERIOD = pdMS_TO_TICKS(MINUTES_TO_GRAB_OTE * 60 * 1000);
 
     char* chunk = heap_caps_malloc(CHUNK, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     if (!chunk) {
-        ESP_LOGE(TAG, "no mem");
+        ESP_LOGE(TAG, "Memory missing when trying to allocate buffer for websraping");
         vTaskDelete(NULL);
     }
 
@@ -786,7 +781,7 @@ static void ote_read(void* pv) {
 
                 /* ---------- 1. date ------------------------------------ */
                 if (!yyyymmdd[0]) {
-                    const char* anchor = strstr(buf, "sledky");
+                    const char* anchor = strstr(buf, "Výsledky denního trhu");
                     if (anchor) {
                         const char* p = anchor;
                         while (*p && !isdigit((unsigned char)*p)) ++p;
