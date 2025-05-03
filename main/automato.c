@@ -47,10 +47,6 @@ static bool provisioned = false;
 // "connected to wifi" status global variable
 static bool device_connected = false;
 
-// static buffer to read web
-
-static __attribute__((section(".bss_ext")))  char webreadbuf[100000];
-
 // mac address
 uint8_t mac[6];
 char mac_string[19];
@@ -725,152 +721,159 @@ void start_mdns_service() {
 
 // Task to grab & log the OTE data every minute
 
+/* One read operation = 4 kB                                                 */
+#define CHUNK 4096
+/* Keep last 512 B from previous chunk                                       */
+#define TAIL 512
+
 static void ote_read(void* pv) {
-    const char* url = "https://www.ote-cr.cz/cs/kratkodobe-trhy/elektrina/denni-trh";
+    const char* URL = "https://www.ote-cr.cz/cs/kratkodobe-trhy/elektrina/denni-trh";
+    const TickType_t PERIOD = pdMS_TO_TICKS(10 * 1000);
 
-    while (1) {
-        esp_http_client_config_t cfg = {
-            .url = url,
-            .timeout_ms = 10000,
-            .user_agent = "automato/grabber",
-        };
-        esp_http_client_handle_t cli = esp_http_client_init(&cfg);
+    char* chunk = heap_caps_malloc(CHUNK, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (!chunk) {
+        ESP_LOGE(TAG, "no mem");
+        vTaskDelete(NULL);
+    }
 
-        // ESP_LOGW(TAG, "heap before open()   : %ld", esp_get_free_heap_size());
-        if (esp_http_client_open(cli, 0) == ESP_OK) { /* HTTP GET */
-            
-            // ESP_LOGW(TAG, "heap after open()    : %ld", esp_get_free_heap_size());
+    char tail[TAIL];
+    size_t tail_len = 0;
 
+    char yyyymmdd[9] = {0};  /* result date             */
+    char prices[24][16];     /* text prices             */
+    bool price_ok[24] = {0}; /* flags                   */
 
-            if (esp_http_client_fetch_headers(cli) < 0) {
+    for (;;) {
+        memset(price_ok, 0, sizeof(price_ok));
+        yyyymmdd[0] = '\0';
+        tail_len = 0;
+
+        esp_http_client_config_t cfg = {.url = URL, .timeout_ms = 10000, .user_agent = "automato/grabber"};
+        esp_http_client_handle_t c = esp_http_client_init(&cfg);
+
+        // fetch headers, possibly activate unzip
+        if (esp_http_client_open(c, 0) == ESP_OK) {
+            // fetch header
+            if (esp_http_client_fetch_headers(c) < 0) {
                 ESP_LOGE(TAG, "fetch_headers failed");
-                esp_http_client_close(cli);
-                goto next_cycle;
+                esp_http_client_close(c);
+                continue;
             }
 
-            size_t written = 0;
-            while (written < sizeof(webreadbuf) - 1) {
-                int r = esp_http_client_read(cli, webreadbuf + written, sizeof(webreadbuf) - 1 - written);
+            while (1) {
+                int r = esp_http_client_read(c, chunk, CHUNK);
+
+                // ESP_LOG_BUFFER_CHAR_LEVEL(TAG, chunk, r, ESP_LOG_WARN);
+
                 if (r == ESP_ERR_HTTP_EAGAIN) {
                     vTaskDelay(1);
                     continue;
-                } else if (r < 0) {
-                    ESP_LOGE(TAG, "read error: %d", r);
-                    break;
-                } else if (r == 0) {
-                    break;
-                } else {
-                    written += r;
                 }
-            }
-            webreadbuf[written] = '\0';
-            ESP_LOGI(TAG, "Got %u bytes", (unsigned)written);
-
-            /* ---------- extract OTE date (YYYYMMDD) ---------- */
-            const char* anchor = strstr(webreadbuf, "Výsledky denního trhu");
-            if (!anchor) anchor = strstr(webreadbuf, "denního trhu");
-
-            char yyyymmdd[9] = {0};
-            if (anchor) {
-                const char* p = anchor;
-                while (*p && !isdigit((unsigned char)*p)) ++p;
-
-                if (isdigit((unsigned char)p[0]) && isdigit((unsigned char)p[1]) && p[2] == '.' &&
-                    isdigit((unsigned char)p[3]) && isdigit((unsigned char)p[4]) && p[5] == '.' &&
-                    isdigit((unsigned char)p[6]) && isdigit((unsigned char)p[7]) && isdigit((unsigned char)p[8]) &&
-                    isdigit((unsigned char)p[9])) {
-                    // build YYYYMMDD
-                    yyyymmdd[0] = p[6];
-                    yyyymmdd[1] = p[7];
-                    yyyymmdd[2] = p[8];
-                    yyyymmdd[3] = p[9];
-                    yyyymmdd[4] = p[3];
-                    yyyymmdd[5] = p[4];
-                    yyyymmdd[6] = p[0];
-                    yyyymmdd[7] = p[1];
-                    ESP_LOGI(TAG, "OTE date (YYYYMMDD): %s", yyyymmdd);
-                } else {
-                    ESP_LOGW(TAG, "Date pattern not found after anchor");
+                if (r < 0) {
+                    ESP_LOGE(TAG, "read %d", r);
+                    break;
                 }
-            } else {
-                ESP_LOGW(TAG, "Anchor “Výsledky denního trhu” not found");
-            }
+                if (r == 0) break; /* body done */
 
-            /* prices */
-            /* prices */
-            {
-                const char* scan = webreadbuf;
-                int found = 0;
+                /* build working buffer = tail + fresh data  -------------- */
+                static char buf[TAIL + CHUNK + 1];
+                size_t n = 0;
+                memcpy(buf + n, tail, tail_len);
+                n += tail_len;
+                memcpy(buf + n, chunk, r);
+                n += r;
+                buf[n] = '\0';
 
-                for (int h = 1; h <= 24; ++h) {
-                    // 1) find the hour header, e.g. "<th>1</th>"
-                    char th_pat[16];
-                    int pat_len = snprintf(th_pat, sizeof(th_pat), "<th>%d</th>", h);
-                    const char* th = strstr(scan, th_pat);
-                    if (!th) {
-                        ESP_LOGW(TAG, "Hour %d <th> not found", h);
+                /* ---------- 1. date ------------------------------------ */
+                if (!yyyymmdd[0]) {
+                    const char* anchor = strstr(buf, "sledky");
+                    if (anchor) {
+                        const char* p = anchor;
+                        while (*p && !isdigit((unsigned char)*p)) ++p;
+                        if (isdigit((unsigned char)p[0]) && isdigit((unsigned char)p[1]) && p[2] == '.' &&
+                            isdigit((unsigned char)p[3]) && isdigit((unsigned char)p[4]) && p[5] == '.' &&
+                            isdigit((unsigned char)p[6]) && isdigit((unsigned char)p[7]) &&
+                            isdigit((unsigned char)p[8]) && isdigit((unsigned char)p[9])) {
+                            yyyymmdd[0] = p[6];
+                            yyyymmdd[1] = p[7];
+                            yyyymmdd[2] = p[8];
+                            yyyymmdd[3] = p[9];
+                            yyyymmdd[4] = p[3];
+                            yyyymmdd[5] = p[4];
+                            yyyymmdd[6] = p[0];
+                            yyyymmdd[7] = p[1];
+                            yyyymmdd[8] = '\0';
+                            ESP_LOGI(TAG, "date %s", yyyymmdd);
+                        }
+                    }
+                }
+
+                /* ---------- 2. prices ---------------------------------- */
+                const char* scan = buf;
+                while ((scan = strstr(scan, "<th")) != NULL) {
+                    const char* gt = strchr(scan, '>');
+                    if (!gt) break;
+                    const char* endth = strstr(gt, "</th>");
+                    if (!endth) break;
+
+                    /* extract hour number                                 */
+                    char num[4] = {0};
+                    size_t numlen = endth - (gt + 1);
+                    if (numlen > 3) numlen = 3;
+                    memcpy(num, gt + 1, numlen);
+                    int hour = atoi(num);
+                    if (hour < 1 || hour > 24 || price_ok[hour - 1]) {
+                        scan = endth + 5;
                         continue;
                     }
 
-                    // 2) find the very next <td>…</td> after that
-                    const char* td = strstr(th + pat_len, "<td");
-                    if (!td) {
-                        ESP_LOGW(TAG, "Price <td> for hour %d not found", h);
-                        continue;
-                    }
-                    // jump to content
-                    const char* start = strchr(td, '>') + 1;
-                    const char* end = strstr(start, "</td>");
-                    if (!end) {
-                        ESP_LOGW(TAG, "Malformed <td> for hour %d", h);
-                        continue;
-                    }
+                    /* find next <td …>PRICE</td> after </th> ------------ */
+                    const char* td = strstr(endth, "<td");
+                    if (!td) break;
+                    const char* gt2 = strchr(td, '>');
+                    if (!gt2) break;
+                    const char* endtd = strstr(gt2, "</td>");
+                    if (!endtd) break;
 
-                    // 3) copy and trim whitespace
-                    size_t len = end - start;
-                    char price[16] = {0};
-                    // skip leading spaces
-                    while (len && (*start == ' ' || *start == '\t' || *start == '\n')) {
-                        start++;
-                        len--;
-                    }
-                    // trim trailing spaces
-                    while (len && (start[len - 1] == ' ' || start[len - 1] == '\t' || start[len - 1] == '\n')) {
-                        len--;
-                    }
-                    if (len > sizeof(price) - 1) len = sizeof(price) - 1;
-                    memcpy(price, start, len);
-                    price[len] = '\0';
+                    /* copy price, trim spaces                             */
+                    const char* s = gt2 + 1;
+                    while (s < endtd && isspace((unsigned char)*s)) ++s;
+                    const char* e = endtd;
+                    while (e > s && isspace((unsigned char)*(e - 1))) --e;
 
-                    // 4) normalize comma → dot
-                    for (char* c = price; *c; ++c) {
+                    size_t plen = e - s;
+                    if (plen >= sizeof(prices[0])) plen = sizeof(prices[0]) - 1;
+                    memcpy(prices[hour - 1], s, plen);
+                    prices[hour - 1][plen] = '\0';
+                    for (char* c = prices[hour - 1]; *c; ++c)
                         if (*c == ',') *c = '.';
+                    price_ok[hour - 1] = true;
+
+                    if (yyyymmdd[0]) {
+                        char ts[13];
+                        snprintf(ts, sizeof(ts), "%s%02d", yyyymmdd, hour);
+                        ESP_LOGI(TAG, "%s: %s", ts, prices[hour - 1]);
                     }
-
-                    // 5) log timestamp + price
-                    char ts[13];
-                    snprintf(ts, sizeof(ts), "%s%02d", yyyymmdd, h);
-                    ESP_LOGI(TAG, "%s: %s", ts, price);
-                    found++;
-
-                    // 6) advance scan so next search starts after this cell
-                    scan = end + 5;
+                    scan = endtd + 5;
                 }
 
-                if (found == 0) {
-                    ESP_LOGW(TAG, "No prices parsed at all");
-                }
+                /* keep last 512 B for next loop ------------------------- */
+                tail_len = n >= TAIL ? TAIL : n;
+                memcpy(tail, buf + n - tail_len, tail_len);
             }
-
-            esp_http_client_close(cli);
-        } else {
-            ESP_LOGE(TAG, "open() failed (errno=%d)", esp_http_client_get_errno(cli));
+            esp_http_client_close(c);
         }
-    next_cycle:
-        esp_http_client_cleanup(cli);
-        vTaskDelay(pdMS_TO_TICKS(60 * 1000)); /* once per minute */
+        esp_http_client_cleanup(c);
+
+        /* warn if some hours missing ------------------------------------ */
+        for (int h = 1; h <= 24; ++h)
+            if (!price_ok[h - 1]) ESP_LOGW(TAG, "Hour %d not parsed", h);
+
+        vTaskDelay(PERIOD);
     }
 }
+
+
 
 /**
  * @brief main app
