@@ -3,14 +3,15 @@
  */
 
 // avoid unused variables warnings
-//#pragma GCC diagnostic ignored "-Wunused-variable"
-//#pragma GCC diagnostic ignored "-Wunused-function"
+// #pragma GCC diagnostic ignored "-Wunused-variable"
+// #pragma GCC diagnostic ignored "-Wunused-function"
 
 ////////////////////////
 #include "definitions.h"
 #include "translation.h"
 ////////////////////////
 
+#include <ctype.h>
 #include <esp_event.h>
 #include <esp_log.h>
 #include <esp_wifi.h>
@@ -28,12 +29,15 @@
 
 #include "driver/gpio.h"
 #include "driver/uart.h"
+// #include "esp_crt_bundle.h"
+#include "esp_http_client.h"
 #include "esp_http_server.h"
 #include "esp_sntp.h"
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "http_parser.h"
 #include "logo_favicon.h"
+#include "mdns.h"
 
 // Výrobní číslo default
 char vyrobnicislo[50] = "20240622-001";
@@ -42,6 +46,9 @@ char vyrobnicislo[50] = "20240622-001";
 static bool provisioned = false;
 // "connected to wifi" status global variable
 static bool device_connected = false;
+
+// static buffer to read web
+char webreadbuf[100000];
 
 // mac address
 uint8_t mac[6];
@@ -66,12 +73,10 @@ typedef struct {
 
 static QueueHandle_t tx_queue;
 
-
 // Wifi reconnect constants
 static int wifi_retry_count = 0;
 
 //// S150U variables start ////////////////////
-
 
 // názvy dnů
 char translatedays[][10] = {"??", "ne", "po", "út", "st", "čt", "pá", "so"};
@@ -87,8 +92,6 @@ char ipaddress[64];
 static time_t now_sntp = 0;
 static struct tm timeinfo_sntp = {0};
 
-
-
 // Buffer proměnné pro nastavení času
 uint16_t year_s = 0;
 uint8_t month_s = 0;
@@ -98,10 +101,8 @@ uint8_t hour_s = 0;
 uint8_t min_s = 0;
 uint8_t sec_s = 0;
 
-
 // nvs flash handler
 static nvs_handle_t nvs_handle_storage;
-
 
 // static variables for RX receive
 // static int r_len;  // received length
@@ -192,7 +193,6 @@ enum WIFIAPST_states_list {
 };
 static int8_t wifiapst;
 
-
 // credential vars
 typedef struct {
     char username[33];
@@ -202,7 +202,6 @@ typedef struct {
 // credential definitions
 static user_credentials_t users[] = {{"automato", INIT_PASSWORD_AUTOMATO},
                                      {"admin", INIT_PASSWORD_ADMIN}};
-
 
 // current user
 // -1 - undefined
@@ -563,7 +562,6 @@ void hexlogger(uint8_t* dt, int lendt) {
     ESP_LOGI(TAG, "%s", ldata);
 };
 
-
 static QueueHandle_t uart0_queue;
 
 static void uart_event_task(void* pvParameters) {
@@ -572,7 +570,6 @@ static void uart_event_task(void* pvParameters) {
 
     // rx queue
     rx_queue_item qi;
-
 
     for (;;) {
         // Waiting for UART event.
@@ -681,7 +678,7 @@ void receive_task(void* pvParameters) {
 
         // timeout?
         if (!rec_q) {
-            ESP_LOGI(TAG, "Timeout komunikace RS485");
+            // ESP_LOGI(TAG, "Timeout komunikace RS485");
             comm_status = COMST_TIMEOUT;
 
             // pro jistotu
@@ -739,6 +736,179 @@ void receive_task(void* pvParameters) {
         ESP_LOG_BUFFER_HEXDUMP(TAG, qi.message, qi.length, ESP_LOG_INFO);
     }
 }
+
+/**
+ * @brief initialize mdns
+ */
+void start_mdns_service() {
+    // initialize mDNS service
+    esp_err_t err = mdns_init();
+    if (err) {
+        ESP_LOGE(TAG, "MDNS Init failed: %d\n", err);
+        return;
+    }
+
+    // set hostname
+    mdns_hostname_set("automato");
+    // set default instance
+    mdns_instance_name_set("Automato");
+}
+
+// Task to grab & log the OTE data every minute
+
+static void ote_read(void* pv) {
+    const char* url =
+        "https://www.ote-cr.cz/cs/kratkodobe-trhy/elektrina/denni-trh";
+
+    while (1) {
+        esp_http_client_config_t cfg = {
+            .url = url,
+            .timeout_ms = 10000,
+            .user_agent = "automato/grabber",
+        };
+        esp_http_client_handle_t cli = esp_http_client_init(&cfg);
+
+        if (esp_http_client_open(cli, 0) == ESP_OK) { /* HTTP GET */
+
+            if (esp_http_client_fetch_headers(cli) < 0) {
+                ESP_LOGE(TAG, "fetch_headers failed");
+                esp_http_client_close(cli);
+                goto next_cycle;
+            }
+
+            size_t written = 0;
+            while (written < sizeof(webreadbuf) - 1) {
+                int r = esp_http_client_read(cli, webreadbuf + written,
+                                             sizeof(webreadbuf) - 1 - written);
+                if (r == ESP_ERR_HTTP_EAGAIN) {
+                    continue;
+                } else if (r < 0) {
+                    ESP_LOGE(TAG, "read error: %d", r);
+                    break;
+                } else if (r == 0) {
+                    break;
+                } else {
+                    written += r;
+                }
+            }
+            webreadbuf[written] = '\0';
+            ESP_LOGI(TAG, "Got %u bytes", (unsigned)written);
+
+            /* ---------- extract OTE date (YYYYMMDD) ---------- */
+            const char* anchor = strstr(webreadbuf, "Výsledky denního trhu");
+            if (!anchor) anchor = strstr(webreadbuf, "denního trhu");
+
+            char yyyymmdd[9] = {0};
+            if (anchor) {
+                const char* p = anchor;
+                while (*p && !isdigit((unsigned char)*p)) ++p;
+
+                if (isdigit((unsigned char)p[0]) &&
+                    isdigit((unsigned char)p[1]) && p[2] == '.' &&
+                    isdigit((unsigned char)p[3]) &&
+                    isdigit((unsigned char)p[4]) && p[5] == '.' &&
+                    isdigit((unsigned char)p[6]) &&
+                    isdigit((unsigned char)p[7]) &&
+                    isdigit((unsigned char)p[8]) &&
+                    isdigit((unsigned char)p[9])) {
+                    // build YYYYMMDD
+                    yyyymmdd[0] = p[6];
+                    yyyymmdd[1] = p[7];
+                    yyyymmdd[2] = p[8];
+                    yyyymmdd[3] = p[9];
+                    yyyymmdd[4] = p[3];
+                    yyyymmdd[5] = p[4];
+                    yyyymmdd[6] = p[0];
+                    yyyymmdd[7] = p[1];
+                    ESP_LOGI(TAG, "OTE date (YYYYMMDD): %s", yyyymmdd);
+                } else {
+                    ESP_LOGW(TAG, "Date pattern not found after anchor");
+                }
+            } else {
+                ESP_LOGW(TAG, "Anchor “Výsledky denního trhu” not found");
+            }
+
+            /* prices */
+            /* prices */
+            {
+                const char* scan = webreadbuf;
+                int found = 0;
+
+                for (int h = 1; h <= 24; ++h) {
+                    // 1) find the hour header, e.g. "<th>1</th>"
+                    char th_pat[16];
+                    int pat_len =
+                        snprintf(th_pat, sizeof(th_pat), "<th>%d</th>", h);
+                    const char* th = strstr(scan, th_pat);
+                    if (!th) {
+                        ESP_LOGW(TAG, "Hour %d <th> not found", h);
+                        continue;
+                    }
+
+                    // 2) find the very next <td>…</td> after that
+                    const char* td = strstr(th + pat_len, "<td");
+                    if (!td) {
+                        ESP_LOGW(TAG, "Price <td> for hour %d not found", h);
+                        continue;
+                    }
+                    // jump to content
+                    const char* start = strchr(td, '>') + 1;
+                    const char* end = strstr(start, "</td>");
+                    if (!end) {
+                        ESP_LOGW(TAG, "Malformed <td> for hour %d", h);
+                        continue;
+                    }
+
+                    // 3) copy and trim whitespace
+                    size_t len = end - start;
+                    char price[16] = {0};
+                    // skip leading spaces
+                    while (len && (*start == ' ' || *start == '\t' ||
+                                   *start == '\n')) {
+                        start++;
+                        len--;
+                    }
+                    // trim trailing spaces
+                    while (len &&
+                           (start[len - 1] == ' ' || start[len - 1] == '\t' ||
+                            start[len - 1] == '\n')) {
+                        len--;
+                    }
+                    if (len > sizeof(price) - 1) len = sizeof(price) - 1;
+                    memcpy(price, start, len);
+                    price[len] = '\0';
+
+                    // 4) normalize comma → dot
+                    for (char* c = price; *c; ++c) {
+                        if (*c == ',') *c = '.';
+                    }
+
+                    // 5) log timestamp + price
+                    char ts[13];
+                    snprintf(ts, sizeof(ts), "%s%02d", yyyymmdd, h);
+                    ESP_LOGI(TAG, "%s: %s", ts, price);
+                    found++;
+
+                    // 6) advance scan so next search starts after this cell
+                    scan = end + 5;
+                }
+
+                if (found == 0) {
+                    ESP_LOGW(TAG, "No prices parsed at all");
+                }
+            }
+
+            esp_http_client_close(cli);
+        } else {
+            ESP_LOGE(TAG, "open() failed (errno=%d)",
+                     esp_http_client_get_errno(cli));
+        }
+    next_cycle:
+        esp_http_client_cleanup(cli);
+        vTaskDelay(pdMS_TO_TICKS(60 * 1000)); /* once per minute */
+    }
+}
+
 /**
  * @brief main app
  */
@@ -1072,6 +1242,12 @@ void app_main(void) {
     snprintf(mac_string, sizeof(mac_string), "%02x:%02x:%02x:%02x:%02x:%02x",
              mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
+    // Initialize grab OTE data task
+    xTaskCreate(ote_read, "daily_date", 8 * 1024, NULL, 5, NULL);
+
+    // initialize mDNS
+    start_mdns_service();
+
     // dummy ticks cycle
     while (1) {
         // diagnostics 1: list all items in nvs "storage"
@@ -1116,6 +1292,11 @@ void app_main(void) {
 
         // construct  LED1 status
         // !!! all conditions must be met here for LED1_STATUS_OK:
+
+        // !!! patch here: "comm_status is OK"
+        comm_status = COMST_OK;
+        // !!!
+
         if (comm_status == COMST_OK && provisioned && device_connected) {
             led1_status = LED1_STATUS_OK;
         } else {
@@ -1130,7 +1311,6 @@ void app_main(void) {
                  "wifi_conn=%d",
                  ipaddress, mac_string, vyrobnicislo, comm_status, !provisioned,
                  !device_connected);
-
 
         // development - helper logging
 

@@ -30,12 +30,12 @@
 #define BLE_PASSWORD	"auto1234"
 // pokud je PROV_SHOW_QR definováno, používá se QR. Bez QR - řádek zakomentovat
 #define PROV_SHOW_QR
-// Wifi init tlačítko GPIO
-#define WIFI_INIT_BUTTON_GPIO GPIO_NUM_4
+// RESET_BUTTON GPIO (čtení stavu RESET)
+#define WIFI_INIT_BUTTON_GPIO GPIO_NUM_9
 // Status LED GPIO Red
-#define STATUS_LED_GPIO_RED GPIO_NUM_6
+#define STATUS_LED_GPIO_RED GPIO_NUM_5
 // Status LED GPIO Green
-#define STATUS_LED_GPIO_GREEN GPIO_NUM_5
+#define STATUS_LED_GPIO_GREEN GPIO_NUM_4
 // Status LED GPIO Yellow
 #define STATUS_LED_GPIO_YELLOW GPIO_NUM_38
 
