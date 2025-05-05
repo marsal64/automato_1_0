@@ -375,49 +375,6 @@ esp_err_t login_post_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-esp_err_t setup_get_handler(httpd_req_t *req) {
-    // Render conditions in a list
-    httpd_resp_set_type(req, "text/html; charset=UTF-8");
-    char html[2048];  // Adjust buffer size
-    size_t len = snprintf(html, sizeof(html),
-                          "<!DOCTYPE html><html><head>"
-                          "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-                          "<style>"
-                          "body { font-family: Helvetica, Arial, sans-serif; }"
-                          ".wrapper { max-width: 800px; margin: 0; padding: 10px; border: 1px solid #bbb; }"
-                          ".headbar { text-align: center; }"
-                          ".conditions { margin-top: 20px; }"
-                          "</style>"
-                          "</head><body><div class='wrapper'>"
-                          "<div class='headbar'><h3>Nastavení</h3></div>"
-                          "<div class='conditions'>");
-
-    for (int i = 0; i < MAXNUMCONDITONS; ++i) {
-        if (conditions[i].left[0] != '\0') {  // Ensure it's a valid condition
-            char condition_line[1024];
-            snprintf(condition_line, sizeof(condition_line), "<p>%s %s %s -> %s</p>", conditions[i].left,
-                     conditions[i].operator, conditions[i].right, conditions[i].action);
-            strncat(html, condition_line, sizeof(html) - strlen(html) - 1);
-        }
-    }
-
-    // Setup bottom buttons: "Odhlásit" (Logoff) and "Zpět" (Back)
-    strncat(html,
-            "<div style='text-align:center;margin-top:20px;'>"
-            "<form action='/logout' method='get' style='margin:0;'>"
-            "<button type='submit'>Odhlásit</button>"
-            "</form>"
-            "<form action='/' method='get' style='margin-top:10px;'>"
-            "<button type='submit'>Zpět</button>"
-            "</form></div>",
-            sizeof(html) - strlen(html) - 1);
-
-    strncat(html, "</div></body></html>", sizeof(html) - strlen(html) - 1);
-
-    httpd_resp_send(req, html, len);
-    return ESP_OK;
-}
-
 
 // handler for catching nets logo
 esp_err_t logo_image_get_handler(httpd_req_t *req) {
@@ -450,6 +407,175 @@ esp_err_t favicon_get_handler(httpd_req_t *req) {
 }
 
 
+
+/* ==========================  SET‑UP (GET)  ========================= */
+esp_err_t setup_get_handler(httpd_req_t *req) {
+    /* ---------- auth -------------------------------------------------- */
+    char cookie_value[32];
+    if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) || strcmp(cookie_value, "1") != 0 ||
+        current_user_id == -1) {
+        httpd_resp_set_status(req, "307 Temporary Redirect");
+        httpd_resp_set_hdr(req, "Location", "/login");
+        httpd_resp_send(req, NULL, 0);
+        return ESP_OK;
+    }
+
+    /* ---------- build JSON of the current conditions --------------- */
+    cJSON *root = cJSON_CreateArray();
+    for (int i = 0; i < MAXNUMCONDITONS && conditions[i].left[0]; ++i) {
+        cJSON *it = cJSON_CreateObject();
+        cJSON_AddNumberToObject(it, "enabled", conditions[i].active);
+        cJSON_AddStringToObject(it, "left", conditions[i].left);
+        cJSON_AddStringToObject(it, "op", conditions[i].operator);
+        cJSON_AddStringToObject(it, "right", conditions[i].right);
+        cJSON_AddStringToObject(it, "action", conditions[i].action);
+        cJSON_AddItemToArray(root, it);
+    }
+    char *json = cJSON_PrintUnformatted(root); /* remember to free() */
+    cJSON_Delete(root);
+
+    httpd_resp_set_type(req, "text/html; charset=UTF-8");
+
+    chunk(req,
+          "<!DOCTYPE html><html lang='cs'><head>"
+          "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+          "<title>Nastavení</title>"
+          "<style>"
+          "body{font-family:Helvetica,Arial,sans-serif;margin:0;background:#fafafa}"
+          ".wrapper{max-width:860px;margin:20px auto;border:1px solid #bbb;padding:20px;background:#fff}"
+          "table{width:100%;border-collapse:collapse;margin-top:10px}"
+          "th,td{border:1px solid #ccc;padding:6px;text-align:center}"
+          "th{background:#eee}"
+          "button{padding:4px 10px;margin:2px}"
+          ".wide{width:160px}"
+          "</style>"
+          "</head><body><div class='wrapper'>"
+          "<h2>Nastavení podmínek</h2>"
+          "<table id='condTable'>"
+          "<thead><tr>"
+          "<th>Povoleno</th><th>Levá strana</th><th>Operátor</th>"
+          "<th>Pravá strana</th><th>Akce</th><th>Odstranit</th>"
+          "</tr></thead><tbody></tbody></table>"
+          "<button id='addBtn'>+ Nová podmínka</button>"
+          "<button id='backBtn' onclick=\"location.href='/'\" "
+          "        style='float:right;margin-left:8px;'>Zpět</button>" /* NEW */
+          "<button id='saveBtn' style='float:right;'>Potvrzení</button>"
+          "<br style='clear:both'>"
+          "<script>");
+
+    /* ------- embed the JSON ------- */
+    chunk(req, "const initData = ");
+    chunk(req, json ? json : "[]");
+    chunk(req, ";\n");
+
+    /* ------- tiny helper JS ------- */
+    /* ---- JavaScript helper block in setup_get_handler() ---------------- */
+    chunk(req,
+          "const tbody = document.querySelector('#condTable tbody');\n"
+          "function buildRow(d){\n"
+          "  const tr = document.createElement('tr');\n"
+          "  tr.innerHTML = `"
+          "<td><input type='checkbox' ${d.enabled ? 'checked' : ''}></td>"
+          "<td><input class='wide'  value='${d.left  ?? \"\"}'></td>"
+          "<td><input style='width:40px' value='${d.op    ?? \"\"}'></td>"
+          "<td><input class='wide'  value='${d.right ?? \"\"}'></td>"
+          "<td><input class='wide'  value='${d.action?? \"\"}'></td>"
+          "<td><button class='del'>&#128465;</button></td>`;\n"
+          "  tbody.appendChild(tr);\n"
+          "}\n"
+          "function render(){ tbody.innerHTML=''; initData.forEach(buildRow); }\n"
+          "render();\n"
+          "document.getElementById('addBtn').onclick = () => {\n"
+          "  initData.push({ enabled: 1, left: \"\", op: \"\", right: \"\", action: \"\" });\n"
+          "  render();\n"
+          "};\n"
+          "tbody.addEventListener('click', e => {\n"
+          "  if (e.target.classList.contains('del')) {\n"
+          "    const idx = [...tbody.children].indexOf(e.target.closest('tr'));\n"
+          "    initData.splice(idx, 1); render();\n"
+          "  }\n"
+          "});\n"
+          "document.getElementById('saveBtn').onclick = async () => {\n"
+          "  const rows = [...tbody.children];\n"
+          "  const out = rows.map(r => {\n"
+          "    const inp = r.querySelectorAll('input');\n"
+          "    return {\n"
+          "      enabled: inp[0].checked ? 1 : 0,\n"
+          "      left:    inp[1].value.trim(),\n"
+          "      op:      inp[2].value.trim(),\n"
+          "      right:   inp[3].value.trim(),\n"
+          "      action:  inp[4].value.trim()\n"
+          "    };\n"
+          "  }).filter(r => r.left !== '' || r.action !== '');\n"
+          "  try {\n"
+          "    const resp = await fetch('/setup', {\n"
+          "      method: 'POST',\n"
+          "      headers: { 'Content-Type': 'application/json' },\n"
+          "      body: JSON.stringify(out)\n"
+          "    });\n"
+          "    if (resp.ok) alert('Uloženo!'); else alert('Chyba při ukládání');\n"
+          "  } catch (ex) { alert('Chyba: ' + ex); }\n"
+          "};\n");
+
+
+    chunk(req, "</script></div></body></html>");
+
+    free(json); /* keep this line */
+    return httpd_resp_send_chunk(req, NULL, 0);
+}
+
+/* ==========================  SET‑UP (POST)  ========================= *
+ * Accepts JSON array like:
+ *  [ {enabled:1,left:'OTEPH',op:'>',right:'0',action:'REL1ON'}, ... ]
+ * Replaces the global `conditions[]`, fills trailing slot "" and zeroes
+ * the rest, then (optionally) persists to NVS the way you already do.
+ * Responds 204 No Content on success.
+ * ------------------------------------------------------------------- */
+esp_err_t setup_post_handler(httpd_req_t *req) {
+    /* ----- read body --------------------------------------------------- */
+    char buf[2048];
+    int len = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (len <= 0) return ESP_FAIL;
+    buf[len] = 0;
+
+    cJSON *root = cJSON_Parse(buf);
+    if (!cJSON_IsArray(root)) {
+        cJSON_Delete(root);
+        return ESP_FAIL;
+    }
+
+    memset(conditions, 0, sizeof(conditions)); /* clear whole table */
+
+    int idx = 0;
+    cJSON *it = NULL;
+    cJSON_ArrayForEach(it, root) {
+        if (idx >= MAXNUMCONDITONS - 1) break; /* leave last as terminator */
+        conditions[idx].active = cJSON_GetObjectItem(it, "enabled")->valueint ? 1 : 0;
+        strncpy(conditions[idx].left, cJSON_GetObjectItem(it, "left")->valuestring ?: "",
+                sizeof(conditions[idx].left) - 1);
+        strncpy(conditions[idx].operator, cJSON_GetObjectItem(it, "op")->valuestring ?: "",
+                sizeof(conditions[idx].operator) - 1);
+        strncpy(conditions[idx].right, cJSON_GetObjectItem(it, "right")->valuestring ?: "",
+                sizeof(conditions[idx].right) - 1);
+        strncpy(conditions[idx].action, cJSON_GetObjectItem(it, "action")->valuestring ?: "",
+                sizeof(conditions[idx].action) - 1);
+        ++idx;
+    }
+    /* mark the new end */
+    conditions[idx].active = 1;
+    conditions[idx].left[0] = conditions[idx].operator[0] = conditions[idx].right[0] = conditions[idx].action[0] = 0;
+
+    cJSON_Delete(root);
+
+    /* ---- optionally persist to NVS here (omitted for brevity) ------- */
+
+    httpd_resp_set_status(req, "204 No Content");
+    httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
+}
+
+
+
 // Function to start the web server
 httpd_handle_t start_webserver(void) {
     httpd_handle_t server = NULL;
@@ -463,6 +589,16 @@ httpd_handle_t start_webserver(void) {
     if (httpd_start(&server, &config) == ESP_OK) {
         httpd_uri_t root_uri = {.uri = "/", .method = HTTP_GET, .handler = root_get_handler, .user_ctx = NULL};
         httpd_register_uri_handler(server, &root_uri);
+
+        /* existing GET handler keeps same URI */
+        httpd_uri_t setup_uri_get = {
+            .uri = "/setup", .method = HTTP_GET, .handler = setup_get_handler, .user_ctx = NULL};
+        httpd_register_uri_handler(server, &setup_uri_get);
+
+        /* NEW: POST handler that saves the rules */
+        httpd_uri_t setup_uri_post = {
+            .uri = "/setup", .method = HTTP_POST, .handler = setup_post_handler, .user_ctx = NULL};
+        httpd_register_uri_handler(server, &setup_uri_post);
 
         httpd_uri_t data_uri = {.uri = "/data", .method = HTTP_GET, .handler = data_get_handler, .user_ctx = NULL};
         httpd_register_uri_handler(server, &data_uri);

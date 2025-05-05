@@ -11,6 +11,8 @@
 #include "translation.h"
 ////////////////////////
 
+#include "cJSON.h"
+
 #include <ctype.h>
 #include <esp_event.h>
 #include <esp_log.h>
@@ -222,21 +224,21 @@ named_variable_t run_vars[NUMVALUES];
 // condition
 typedef struct {
     uint8_t active;    // condition active (1) or not (0)
-    char left[255];    // left side of condition
+    char left[33];    // left side of condition
     char operator[3];  // operator (==, !=, <, >, <=, >=)
-    char right[255];   // right side of condition
-    char action[255];  // action to be done if condition is true
+    char right[33];   // right side of condition
+    char action[33];  // action to be done if condition is true
 
 } condition_item;
 condition_item conditions[MAXNUMCONDITONS] = {
-    {1, "OTEPCZK", ">", "0", "REL1ON"},
-    {1, "OTEPCZK", ">", "0", "REL2ON"},
-    {1, "OTEPCZK", ">", "0", "REL3ON"},
-    {1, "OTEPCZK", ">", "0", "REDLEDON"},
-    {1, "OTEPCZK", "<=", "0", "REL1OFF"},
-    {1, "OTEPCZK", "<=", "0", "REL2OFF"},
-    {1, "OTEPCZK", "<=", "0", "REL3OFF"},
-    {1, "OTEPCZK", "<=", "0", "REDLEDOFF"},
+    {1, "OTEPH", ">", "0", "REL1ON"},
+    {1, "OTEPH", ">", "0", "REL2ON"},
+    {1, "OTEPH", ">", "0", "REL3ON"},
+    {1, "OTEPH", ">", "0", "REDLEDON"},
+    {1, "OTEPH", "<=", "0", "REL1OFF"},
+    {1, "OTEPH", "<=", "0", "REL2OFF"},
+    {1, "OTEPH", "<=", "0", "REL3OFF"},
+    {1, "OTEPH", "<=", "0", "REDLEDOFF"},
     {1, "", "", "", ""}  // end of conditions
 };  // end of conditions list
 
@@ -1009,14 +1011,14 @@ static void evaluate_do(void* pv) {
         condition_item w[MAXNUMCONDITONS];
         memcpy(w, conditions, sizeof(w));
 
-        // substitutios of OTEPCZK (strings based)
+        // substitutios of OTEPH (strings based)
         for (int i = 0; i < MAXNUMCONDITONS; ++i) {
             /* terminator row? */
-            if (conditions[i].left[0] == '\0' && conditions[i].right[0] == '\0') break;
+            if (w[i].left[0] == '\0' && w[i].right[0] == '\0') break;
 
-            // OTEPCZK
-            substitute_token(conditions[i].left, sizeof(conditions[i].left), "OTEPCZK", current_ote_price_str);
-            substitute_token(conditions[i].right, sizeof(conditions[i].right), "OTEPCZK", current_ote_price_str);
+            // OTEPH
+            substitute_token(w[i].left, sizeof(w[i].left), "OTEPH", current_ote_price_str);
+            substitute_token(w[i].right, sizeof(w[i].right), "OTEPH", current_ote_price_str);
         }
 
         //// conditions evaluation cycle
@@ -1027,20 +1029,20 @@ static void evaluate_do(void* pv) {
             - current_ote_price_str != "--" (valid price)
             */
 
-            for (int i = 0; conditions[i].left[0] || conditions[i].right[0]; ++i) {
-                if (!conditions[i].active) continue;
+            for (int i = 0; w[i].left[0] || w[i].right[0]; ++i) {
+                if (!w[i].active) continue;
 
                 int ok_l, ok_r;
-                double left_val = eval_expr(conditions[i].left, &ok_l);
-                double right_val = eval_expr(conditions[i].right, &ok_r);
+                double left_val = eval_expr(w[i].left, &ok_l);
+                double right_val = eval_expr(w[i].right, &ok_r);
                 if (!ok_l || !ok_r) {
-                    ESP_LOGE(TAG, "Invalid expression: %s %s %s", conditions[i].left, conditions[i].operator,
-                             conditions[i].right);
+                    ESP_LOGE(TAG, "Invalid expression: %s %s %s", w[i].left, w[i].operator,
+                             w[i].right);
                     continue; /* skip invalid lines */
                 }
 
                 bool result = false;
-                const char* op = conditions[i].operator;
+                const char* op = w[i].operator;
 
                 if (strcmp(op, "==") == 0)
                     result = (left_val == right_val);
@@ -1056,7 +1058,7 @@ static void evaluate_do(void* pv) {
                     result = (left_val >= right_val);
 
                 if (result) {
-                    do_action(conditions[i].action); /* your existing function */
+                    do_action(w[i].action); /* your existing function */
                 }
             }
         }
