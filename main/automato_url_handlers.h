@@ -85,6 +85,8 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           ".prices,.actions{border-top:1px solid #bbb;padding:6px;box-sizing:border-box}"
           ".actions{border-left:1px solid #bbb}"
           ".prices b{color:#c00}"
+          /* centre both column headings */
+          ".prices h3,.actions h3{margin:0 0 8px 0;text-align:center}"
           /* one unified horizontal bar (date + IP + button) */
           ".headbar{display:flex;justify-content:space-between;align-items:center;height:46px;padding:0 8px;}"
           "</style>"
@@ -157,7 +159,11 @@ esp_err_t root_get_handler(httpd_req_t *req) {
     /* prices column (UL gets id) -------------------------------------- */
     chunk(req, "<div class='prices'><h3>");
     chunk(req, t("Ceny OTE"));
-    chunk(req, "</h3><ul id='prices-list' style='margin:0;padding-left:1em;'>");
+    /* no bullets – but keep 1 em indent for “air” on the left */
+    chunk(req,
+          "</h3><ul id='prices-list'"
+          " style='margin:0;padding-left:1em;list-style:none;'>");
+
     for (size_t i = 0; i < n_prices; ++i) {
         char line[64];
         snprintf(line, sizeof(line), "<li>%s&nbsp;:&nbsp;%s</li>", prices[i].key, prices[i].val);
