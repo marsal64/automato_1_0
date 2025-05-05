@@ -41,6 +41,21 @@ static const translation cz_en[] = {{"Vypnuto", "Off"},
                                     {"Poslední akce", "Last actions"},
                                     {"čas nenastaven", "time not set"},
                                     {"Nastav", "Setup"},
+                                    {"Uloženo", "Saved"},
+                                    {"Chyba", "Error"},
+                                    {"Povoleno", "Enabled"},
+                                    {"Akce", "Action"},
+                                    {"Nová podmínka", "New condition"},
+                                    {"Operátor", "Operator"},
+                                    {"Zpět", "Back"},
+                                    {"Odstranit", "Remove"},
+                                    {"Levá strana", "Left side"},
+                                    {"Pravá strana", "Right side"},
+                                    {"Operátor", "Operator"},
+                                    {"Podmínka", "Condition"},
+                                    {"Nastavení podmínek", "Conditions setting"},
+                                    {"Potvrzení", "Confirm"},
+
 
                                     /* sentinel – signals end of table */
                                     {"", ""}};

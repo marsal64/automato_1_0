@@ -281,6 +281,45 @@ void utf8_to_ascii(const char* utf8_str, char* ascii_str, size_t ascii_len) {
     ascii_str[j] = '\0';
 }
 
+
+
+static esp_err_t load_or_init_conditions(void)
+{
+    esp_err_t err;
+    size_t    sz = sizeof(conditions);           /* how many bytes we expect */
+
+    /* try to read the binary blob *************************************/
+    err = nvs_get_blob(nvs_handle_storage, "conditions", conditions, &sz);
+
+    if (err == ESP_OK && sz == sizeof(conditions)) {
+        ESP_LOGI(TAG,
+                 "Conditions table loaded from NVS (size %zu B)", sz);
+        return ESP_OK;                           /* happy path              */
+    }
+
+    /* either the key was missing OR size/version mismatch  *************/
+    ESP_LOGW(TAG,
+             "Conditions not found (or wrong size, err=%d). "
+             "Writing factory defaults to NVS …",
+             err);
+
+    /* write the compile‑time defaults you have in `conditions[]`       */
+    err = nvs_set_blob(nvs_handle_storage,
+                       "conditions",
+                       conditions,
+                       sizeof(conditions));
+    if (err == ESP_OK)
+        err = nvs_commit(nvs_handle_storage);
+
+    if (err == ESP_OK)
+        ESP_LOGI(TAG, "Factory defaults stored.");
+    else
+        ESP_LOGE(TAG, "Storing defaults failed (%d)", err);
+
+    return err;
+}
+
+
 /**
  * day_of_week:
  *    Returns the day of week for a given date in the Gregorian calendar.
@@ -1629,6 +1668,9 @@ void app_main(void) {
 
     // initialize mDNS
     start_mdns_service();
+
+    // read or refreshs conditions from NVS
+    ESP_ERROR_CHECK(load_or_init_conditions());
 
     // dummy ticks cycle
     while (1) {

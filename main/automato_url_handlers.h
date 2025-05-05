@@ -450,16 +450,40 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
           ".wide{width:160px}"
           "</style>"
           "</head><body><div class='wrapper'>"
-          "<h2>Nastavení podmínek</h2>"
+          "<h2>");
+    chunk(req, t("Nastavení podmínek"));
+    chunk(req,
+          "</h2>"
           "<table id='condTable'>"
           "<thead><tr>"
-          "<th>Povoleno</th><th>Levá strana</th><th>Operátor</th>"
-          "<th>Pravá strana</th><th>Akce</th><th>Odstranit</th>"
+          "<th>");
+    chunk(req, t("Povoleno"));
+    chunk(req, "</th><th>");
+    chunk(req, t("Levá strana"));
+    chunk(req, "</th><th>");
+    chunk(req, t("Operátor"));
+    chunk(req, "</th><th>");
+    chunk(req, t("Pravá strana"));
+    chunk(req, "</th><th>");
+    chunk(req, t("Akce"));
+    chunk(req, "</th><th>");
+    chunk(req, t("Odstranit"));
+    chunk(req,
+          "</th>"
           "</tr></thead><tbody></tbody></table>"
-          "<button id='addBtn'>+ Nová podmínka</button>"
+          "<button id='addBtn'>+ ");
+    chunk(req, t("Nová podmínka"));
+    chunk(req,
+          "</button>"
           "<button id='backBtn' onclick=\"location.href='/'\" "
-          "        style='float:right;margin-left:8px;'>Zpět</button>" /* NEW */
-          "<button id='saveBtn' style='float:right;'>Potvrzení</button>"
+          "        style='float:right;margin-left:8px;'>");
+    chunk(req, t("Zpět"));
+    chunk(req,
+          "</button>" /* NEW */
+          "<button id='saveBtn' style='float:right;'>");
+    chunk(req, t("Potvrzení"));
+    chunk(req,
+          "</button>"
           "<br style='clear:both'>"
           "<script>");
 
@@ -513,8 +537,16 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
           "      headers: { 'Content-Type': 'application/json' },\n"
           "      body: JSON.stringify(out)\n"
           "    });\n"
-          "    if (resp.ok) alert('Uloženo!'); else alert('Chyba při ukládání');\n"
-          "  } catch (ex) { alert('Chyba: ' + ex); }\n"
+          "    if (resp.ok) alert('");
+    chunk(req, t("Uloženo"));
+    chunk(req, "!'); else alert('");
+    chunk(req, t("Chyba při ukládání"));
+    chunk(req,
+          "');\n"
+          "  } catch (ex) { alert('");
+    chunk(req, t("Chyba"));
+    chunk(req,
+          ": ' + ex); }\n"
           "};\n");
 
 
@@ -567,7 +599,22 @@ esp_err_t setup_post_handler(httpd_req_t *req) {
 
     cJSON_Delete(root);
 
-    /* ---- optionally persist to NVS here (omitted for brevity) ------- */
+    /* ---------- PERSIST TO NVS -------------------------------------- */
+    {                                                                  /* <- keep the scope small       */
+        esp_err_t err = nvs_set_blob(nvs_handle_storage, "conditions", /* key                     */
+                                     conditions,                       /* data                    */
+                                     sizeof(conditions));              /* size                    */
+
+        if (err == ESP_OK) {
+            err = nvs_commit(nvs_handle_storage);
+        }
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Saving conditions to NVS failed (%d)", err);
+        } else {
+            ESP_LOGI(TAG, "Conditions written to NVS (%zu B)", sizeof(conditions));
+        }
+    }
+    /* ---------------------------------------------------------------- */
 
     httpd_resp_set_status(req, "204 No Content");
     httpd_resp_send(req, NULL, 0);
