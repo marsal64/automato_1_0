@@ -20,7 +20,7 @@
 #define INIT_PASSWORD_ADMIN "1111"
 
 // define maximum number of conditions
-#define MAXNUMCONDITONS 20
+#define MAXNUMCONDITONS 10
 
 // jednoznačné device id:
 #define deviceid "automato"

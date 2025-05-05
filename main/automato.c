@@ -221,16 +221,27 @@ named_variable_t run_vars[NUMVALUES];
 
 // condition
 typedef struct {
-    uint8_t id;  // condition ID
-    uint8_t active; // condition active (1) or not (0)
-    char left[255]; // left side of condition
-    char right[255];    // right side of condition
+    uint8_t id;        // condition ID
+    uint8_t active;    // condition active (1) or not (0)
+    char left[255];    // left side of condition
     char operator[3];  // operator (==, !=, <, >, <=, >=)
+    char right[255];   // right side of condition
+    char action[255];  // action to be done if condition is true
 
 } scondition;
-scondition conditions[MAXNUMCONDITONS];
+scondition conditions[MAXNUMCONDITONS] = {
+    {1, 1, "OTEPCZK", ">", "0", "REL1ON"},
+    {2, 1, "OTEPCZK", ">", "0", "REL2ON"},
+    {3, 1, "OTEPCZK", ">", "0", "REL3ON"},
+    {4, 1, "OTEPCZK", "<=", "0", "REL1OFF"},
+    {5, 1, "OTEPCZK", "<=", "0", "REL2OFF"},
+    {6, 1, "OTEPCZK", "<=", "0", "REL3OFF"},
+    {7, 1, "", "", "", ""}  // end of conditions
+};  // end of conditions list
 
-static const char* TAG = "AUTOMATO";
+
+// logging tag
+static const char* TAG = "automato";
 
 /* Signal Wi-Fi events on this event-group */
 const int WIFI_CONNECTED_EVENT = BIT0;
@@ -736,33 +747,152 @@ void start_mdns_service() {
     mdns_instance_name_set("Automato");
 }
 
-
 // Actions
 // Parameter must be string ended by /0
 static void do_action(char* action) {
-    if (strcmp(action, "R1ON") == 0) {
+    if (strcmp(action, "REL1ON") == 0) {
         ESP_LOGI(TAG, "Relay1 ON");
-        // gpio_set_level(RELAY1, 1);
-    } else if (strcmp(action, "R1OFF") == 0) {
+        gpio_set_level(RELAY1, 1);
+    } else if (strcmp(action, "REL1OFF") == 0) {
         ESP_LOGI(TAG, "Relay1 OFF");
-        // gpio_set_level(RELAY1, 0);
-    } else if (strcmp(action, "R2ON") == 0) {
+        gpio_set_level(RELAY1, 0);
+    } else if (strcmp(action, "REL2ON") == 0) {
         ESP_LOGI(TAG, "Relay2 ON");
-        // gpio_set_level(RELAY2, 1);
-    } else if (strcmp(action, "R2OFF") == 0) {
+        gpio_set_level(RELAY2, 1);
+    } else if (strcmp(action, "REL2OFF") == 0) {
         ESP_LOGI(TAG, "Relay2 OFF");
-        // gpio_set_level(RELAY2, 0);
-    } else if (strcmp(action, "R3ON") == 0) {
+        gpio_set_level(RELAY2, 0);
+    } else if (strcmp(action, "REL3ON") == 0) {
         ESP_LOGI(TAG, "Relay3 ON");
-        // gpio_set_level(RELAY3, 1);
-    } else if (strcmp(action, "R3OFF") == 0) {
+        gpio_set_level(RELAY3, 1);
+    } else if (strcmp(action, "REL3OFF") == 0) {
         ESP_LOGI(TAG, "Relay3 OFF");
-        // gpio_set_level(RELAY3, 0);
+        gpio_set_level(RELAY3, 0);
     } else {
         ESP_LOGW(TAG, "Unknown action: %s", action);
     }
 }
 
+
+/* helper: replace all occurrences of TOKEN in FIELD with REPL --- */
+static void substitute_token(char* field, size_t field_sz, const char* token, const char* repl) {
+    char tmp[255]; /* same size as field   */
+    char* dst = tmp;
+    const char* src = field;
+    size_t tok_len = strlen(token);
+    size_t repl_len = strlen(repl);
+
+    while (*src && (dst - tmp) < (int)field_sz - 1) {
+        const char* hit = strstr(src, token);
+
+        /* copy text before next token (or whole tail if none) */
+        size_t chunk = hit ? (size_t)(hit - src) : strlen(src);
+        if (chunk > field_sz - 1 - (dst - tmp)) /* space left?      */
+            chunk = field_sz - 1 - (dst - tmp);
+        memcpy(dst, src, chunk);
+        dst += chunk;
+        src += chunk;
+
+        /* no more tokens?  copy tail done */
+        if (!hit) break;
+
+        /* copy replacement text */
+        size_t copy = repl_len;
+        if (copy > field_sz - 1 - (dst - tmp)) copy = field_sz - 1 - (dst - tmp);
+        memcpy(dst, repl, copy);
+        dst += copy;
+
+        src += tok_len; /* skip the token        */
+    }
+    *dst = '\0';
+
+    /* write back into original field */
+    strncpy(field, tmp, field_sz - 1);
+    field[field_sz - 1] = '\0';
+}
+
+
+static const char* g_cur; /* global cursor into the string */
+
+/* --- helpers ---------------------------------------------------- */
+static void skip_ws(void) {
+    while (isspace((unsigned char)*g_cur)) ++g_cur;
+}
+
+static double parse_number(void) {
+    skip_ws();
+    char* end;
+    double val = strtod(g_cur, &end);
+    if (end == g_cur) { /* nothing parsed */
+        fprintf(stderr, "eval: number expected near '%s'\n", g_cur);
+        return 0.0;
+    }
+    g_cur = end;
+    return val;
+}
+
+/* factor : [ + | - ] number ------------------------------------- */
+static double parse_factor(void) {
+    skip_ws();
+    int sign = 1;
+    while (*g_cur == '+' || *g_cur == '-') { /* handle repeated signs */
+        if (*g_cur == '-') sign = -sign;
+        ++g_cur;
+        skip_ws();
+    }
+    return sign * parse_number();
+}
+
+/* term   : factor { (* | /) factor }* ---------------------------- */
+static double parse_term(void) {
+    double val = parse_factor();
+    for (;;) {
+        skip_ws();
+        if (*g_cur == '*') {
+            ++g_cur;
+            val *= parse_factor();
+        } else if (*g_cur == '/') {
+            ++g_cur;
+            double denom = parse_factor();
+            if (denom == 0.0)
+                fprintf(stderr, "eval: divide by zero\n");
+            else
+                val /= denom;
+        } else
+            break;
+    }
+    return val;
+}
+
+/* expr   : term { (+ | -) term }* -------------------------------- */
+static double parse_expr_internal(void) {
+    double val = parse_term();
+    for (;;) {
+        skip_ws();
+        if (*g_cur == '+') {
+            ++g_cur;
+            val += parse_term();
+        } else if (*g_cur == '-') {
+            ++g_cur;
+            val -= parse_term();
+        } else
+            break;
+    }
+    return val;
+}
+
+/* public entry: returns result; ok==0 means syntax error --------- */
+double eval_expr(const char* s, int* ok) {
+    g_cur = s;
+    double v = parse_expr_internal();
+    skip_ws();
+    if (*g_cur != '\0') { /* garbage at end */
+        fprintf(stderr, "eval: unexpected char '%c' near '%s'\n", *g_cur, g_cur);
+        if (ok) *ok = 0;
+    } else if (ok)
+        *ok = 1;
+    return v;
+}
 
 // Task to evaluate variables, conditions and do actions
 static void evaluate_do(void* pv) {
@@ -770,10 +900,10 @@ static void evaluate_do(void* pv) {
         //////// evaluate variables
         /*
                 r_rrrrmmddhh - current rrrrmmddhh
-                o_rrrrmmddhh - price for rrrrmmddhh read from nvs
+                current_ote_price - price for rrrrmmddhh read from nvs
         */
 
-        //// evaluate r_rrrrmmddhh
+        // find current rrrrmmddhh
         if (nntptime_status == 1) {
             snprintf(r_rrrrmmddhh, sizeof(r_rrrrmmddhh), "%d%02d%02d%02d",
                      timeinfo_sntp.tm_year + 1900,  // RRRR
@@ -787,15 +917,87 @@ static void evaluate_do(void* pv) {
             ESP_LOGW(TAG, "NTP time not set because of not valid nntptime_status");
         }
 
-        // current price
-        char o_rrrrmmddhh[9];
+        //// find current price from nvs
+        float current_ote_price;
+        char current_ote_price_str[16] = {0};  // string for current price
 
-        // find current price from nvs
+        /* Build key "o_yyyymmddhh" from the already‑computed timestamp */
+        char key[120];
+        snprintf(key, sizeof(key), "o_%s", r_rrrrmmddhh); /* e.g. o_2025050516 */
 
+        /* Try to fetch the price string */
+        size_t sz = sizeof(current_ote_price_str);
+        esp_err_t err = nvs_get_str(nvs_handle_storage, key, current_ote_price_str, &sz);
 
-        // !!! dummy actions here
-        // do_action("R1ON");
+        // change price only if valid time
+        if (err == ESP_OK && nntptime_status == 1) {
+            // load price to float
+            current_ote_price = atof(current_ote_price_str);
+            ESP_LOGI(TAG, "Current price found in NVS:  %f", current_ote_price);
+        } else {
+            strcpy(current_ote_price_str, "--");
+            if (err == ESP_ERR_NVS_NOT_FOUND) {
+                ESP_LOGW(TAG, "Price for %s not found in NVS", key);
+            } else {
+                ESP_LOGE(TAG, "nvs_get_str(%s) failed (%d)", key, err);
+            }
+        }
 
+        // make working copy of conditions;
+        scondition w[MAXNUMCONDITONS];
+        memcpy(w, conditions, sizeof(w));
+
+        // substitutios of OTEPCZK (strings based)
+        for (int i = 0; i < MAXNUMCONDITONS; ++i) {
+            /* terminator row? */
+            if (conditions[i].left[0] == '\0' && conditions[i].right[0] == '\0') break;
+
+            // OTEPCZK
+            substitute_token(conditions[i].left, sizeof(conditions[i].left), "OTEPCZK", current_ote_price_str);
+            substitute_token(conditions[i].right, sizeof(conditions[i].right), "OTEPCZK", current_ote_price_str);
+        }
+
+        //// conditions evaluation cycle
+        
+        if (nntptime_status==1 && strcmp(current_ote_price_str, "--") != 0) {
+            /* evaluate only if certain conditions are met:
+            - nntptime_status == 1 (valid time)
+            - current_ote_price_str != "--" (valid price)
+            */
+
+            for (int i = 0; conditions[i].left[0] || conditions[i].right[0]; ++i) {
+                if (!conditions[i].active) continue;
+
+                int ok_l, ok_r;
+                double left_val = eval_expr(conditions[i].left, &ok_l);
+                double right_val = eval_expr(conditions[i].right, &ok_r);
+                if (!ok_l || !ok_r) {
+                    ESP_LOGE(TAG, "Invalid expression: %s %s %s", conditions[i].left, conditions[i].operator,
+                             conditions[i].right);
+                    continue; /* skip invalid lines */
+                }
+
+                bool result = false;
+                const char* op = conditions[i].operator;
+
+                if (strcmp(op, "==") == 0)
+                    result = (left_val == right_val);
+                else if (strcmp(op, "!=") == 0)
+                    result = (left_val != right_val);
+                else if (strcmp(op, "<") == 0)
+                    result = (left_val < right_val);
+                else if (strcmp(op, "<=") == 0)
+                    result = (left_val <= right_val);
+                else if (strcmp(op, ">") == 0)
+                    result = (left_val > right_val);
+                else if (strcmp(op, ">=") == 0)
+                    result = (left_val >= right_val);
+
+                if (result) {
+                    do_action(conditions[i].action); /* your existing function */
+                }
+            }
+        }
         //
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
@@ -1357,8 +1559,7 @@ void app_main(void) {
                             1);
 
     // initiate evaluate_actions task
-    xTaskCreatePinnedToCore(evaluate_do, "evaluate_do", configMINIMAL_STACK_SIZE * 5, NULL, configMAX_PRIORITIES - 5,
-                            NULL, 1);
+    xTaskCreatePinnedToCore(evaluate_do, "evaluate_do", 16384, NULL, configMAX_PRIORITIES - 5, NULL, 1);
 
     // ESP_LOGW(TAG, "free heap after OTE  : %ld", esp_get_free_heap_size());
 
