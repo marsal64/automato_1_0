@@ -23,7 +23,7 @@ static int price_cmp(const void *a, const void *b) /* newest → oldest */
 }
 
 
-static esp_err_t root_get_handler(httpd_req_t *req) {
+esp_err_t root_get_handler(httpd_req_t *req) {
     /* ---------- auth ------------------------------------------------ */
     char cookie_value[32];
     if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) || strcmp(cookie_value, "1") != 0 ||
@@ -63,11 +63,11 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
     }
     qsort(prices, n_prices, sizeof(price_t), price_cmp);
 
-    /* ---------- HTML start ------------------------------------------ */
+    /* ---------- HTML start ---------------------------------------------- */
     httpd_resp_set_type(req, "text/html; charset=UTF-8");
     chunk(req,
           "<!DOCTYPE html><html><head>"
-          "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+          "<meta name='viewport' content='width=device-width, initial-scale=1'>"
           "<meta http-equiv='refresh' content='5'>"
           "<style>"
           "body{font-family:Helvetica,Arial,sans-serif;margin:0;}"
@@ -80,26 +80,21 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
           ".prices b{color:#c00;}"
           ".logo-txt{font-weight:bold;font-size:1.2rem;margin-left:6px;}"
           "</style>"
-          "<meta charset=\"UTF-8\">"
-
           "<script>"
-          "function logoff() {"
-          "     window.location.href = '/logout';"
-          "}"
-
+          "function logoff(){window.location.href='/logout';}"
           "</script>"
-
           "</head><body><div class='wrapper'>");
 
-    /* ---------- head bar ------------------------------------------- */
+    /* ---------- head bar ------------------------------------------------- */
     char dt_buf[64];
     if (nntptime_status) {
         strftime(dt_buf, sizeof(dt_buf), "%Y-%m-%d&nbsp;%H:%M:%S", &timeinfo_sntp);
         int dw = timeinfo_sntp.tm_wday;
         if (dw < 0 || dw > 6) dw = 0;
         snprintf(dt_buf + strlen(dt_buf), sizeof(dt_buf) - strlen(dt_buf), "&nbsp;(%s)", translatedays[dw]);
-    } else
+    } else {
         strcpy(dt_buf, t("čas nenastaven"));
+    }
 
     chunk(req,
           "<div class='headbar'>"
@@ -115,18 +110,17 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
     chunk(req, ipaddress);
     chunk(req,
           "</span>"
-          "<form action='/logout' method='get' style='margin:0'>"
-          "<button onclick='logoff()'>");
-    chunk(req, t("Odhlásit"));
-    chunk(req,
-          "</button>"
-          "</form>"
-          "</div>");
+          "<form action='/setup' method='get' style='margin:0'>"
+          "<button type='submit'>");
+    chunk(req, t("Nastav"));
+    chunk(req,"</button>"
+                   "</form>"
+                   "</div>");
 
-    /* ---------- grid row ------------------------------------------- */
+    /* ---------- grid row ------------------------------------------------- */
     chunk(req, "<div class='grid'>");
 
-    /* prices */
+    /* prices -------------------------------------------------------------- */
     chunk(req, "<div class='prices'><h3>");
     chunk(req, t("Ceny"));
     chunk(req, "</h3><ul style='margin:0;padding-left:1em;'>");
@@ -137,12 +131,13 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
             chunk(req, "<b>");
             chunk(req, line);
             chunk(req, "</b>");
-        } else
+        } else {
             chunk(req, line);
+        }
     }
     chunk(req, "</ul></div>");
 
-    /* actions */
+    /* actions ------------------------------------------------------------- */
     chunk(req, "<div class='actions'><h3>");
     chunk(req, t("Poslední akce"));
     chunk(req, "</h3><ul style='margin:0;padding-left:1em;'>");
@@ -152,8 +147,18 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
                  last_actions_log[i].timestamp);
         chunk(req, line);
     }
-    chunk(req, "</ul></div></div></div></body></html>");
 
+    /* close actions, grid, and wrapper ----------------------------------- */
+    chunk(req, "</ul></div></div>"); /* </ul> </div>.actions </div>.grid */
+    chunk(req, "</div>");            /* </div>.wrapper  (bottom border ends) */
+
+    /* ---------- log‑off button (now below the line) ---------------------- */
+    chunk(req, "<button onclick='logoff()' style='margin:20px 0 0 40px;'>");
+    chunk(req, t("Odhlásit"));
+    chunk(req, "</button>");
+
+    /* ---------- close the document --------------------------------------- */
+    chunk(req, "</body></html>");
     return httpd_resp_send_chunk(req, NULL, 0);
 }
 
@@ -182,9 +187,9 @@ esp_err_t login_get_handler(httpd_req_t *req) {
                         "maxlength=\"32\"><br><br>"
                         "  <input type=\"submit\" value=\"%s\">"
                         "</form></body></html>",
-                        t("Automato"),                      /* <title>            */
-                        t("Automato"),                      /* logo alt           */
-                        t("Automato - přihlášení obsluhy"), /* heading            */
+                        t("automato"),                      /* <title>            */
+                        t("automato"),                      /* logo alt           */
+                        t("automato - přihlášení obsluhy"), /* heading            */
                         t("Uživatelské jméno"),             /* label – username   */
                         t("Heslo"),                         /* label – password   */
                         t("Přihlášení")                     /* submit             */
@@ -287,6 +292,50 @@ esp_err_t login_post_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+esp_err_t setup_get_handler(httpd_req_t *req) {
+    // Render conditions in a list
+    httpd_resp_set_type(req, "text/html; charset=UTF-8");
+    char html[2048];  // Adjust buffer size
+    size_t len = snprintf(html, sizeof(html),
+                          "<!DOCTYPE html><html><head>"
+                          "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+                          "<style>"
+                          "body { font-family: Helvetica, Arial, sans-serif; }"
+                          ".wrapper { max-width: 800px; margin: 0; padding: 10px; border: 1px solid #bbb; }"
+                          ".headbar { text-align: center; }"
+                          ".conditions { margin-top: 20px; }"
+                          "</style>"
+                          "</head><body><div class='wrapper'>"
+                          "<div class='headbar'><h3>Nastavení</h3></div>"
+                          "<div class='conditions'>");
+
+    for (int i = 0; i < MAXNUMCONDITONS; ++i) {
+        if (conditions[i].left[0] != '\0') {  // Ensure it's a valid condition
+            char condition_line[1024];
+            snprintf(condition_line, sizeof(condition_line), "<p>%s %s %s -> %s</p>", conditions[i].left,
+                     conditions[i].operator, conditions[i].right, conditions[i].action);
+            strncat(html, condition_line, sizeof(html) - strlen(html) - 1);
+        }
+    }
+
+    // Setup bottom buttons: "Odhlásit" (Logoff) and "Zpět" (Back)
+    strncat(html,
+            "<div style='text-align:center;margin-top:20px;'>"
+            "<form action='/logout' method='get' style='margin:0;'>"
+            "<button type='submit'>Odhlásit</button>"
+            "</form>"
+            "<form action='/' method='get' style='margin-top:10px;'>"
+            "<button type='submit'>Zpět</button>"
+            "</form></div>",
+            sizeof(html) - strlen(html) - 1);
+
+    strncat(html, "</div></body></html>", sizeof(html) - strlen(html) - 1);
+
+    httpd_resp_send(req, html, len);
+    return ESP_OK;
+}
+
+
 // handler for catching nets logo
 esp_err_t logo_image_get_handler(httpd_req_t *req) {
     httpd_resp_set_type(req,
@@ -364,11 +413,12 @@ httpd_handle_t start_webserver(void) {
         httpd_uri_t logout_uri = {.uri = "/logout", .method = HTTP_GET, .handler = logout_handler, .user_ctx = NULL};
         httpd_register_uri_handler(server, &logout_uri);
 
-
         httpd_uri_t image_uri = {
             .uri = "/logo", .method = HTTP_GET, .handler = logo_image_get_handler, .user_ctx = NULL};
         httpd_register_uri_handler(server, &image_uri);
 
+        httpd_uri_t setup_uri = {.uri = "/setup", .method = HTTP_GET, .handler = setup_get_handler, .user_ctx = NULL};
+        httpd_register_uri_handler(server, &setup_uri);
 
         // favicon handler
         httpd_uri_t favicon_uri = {

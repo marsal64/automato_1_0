@@ -21,29 +21,29 @@ typedef struct {
     char en[MAX_TRANS_STRING_EN_LEN];
 } translation;
 
-static const translation cz_en[] = {
-    {"Vypnuto", "Off"},
-    {"Zapnuto", "On"},
-    {"Odhlásit", "Logoff"},
-    {"Přihlásit", "Login"},
-    {"Neúspěšné přihlášení", "Unsuccessful login"},
-    {"Automato - přihlášení obsluhy", "Automato - login"},
-    {"Uživatelské jméno", "Username"},
-    {"Heslo", "Password"},
-    {"Automato", "Automato"},
-    {"Automato - přihlášení obsluhy", "Automato - operator login"},
-    {"Automato - přihlášení", "Automato - login"},
-    {"Provoz", "Operation"},
-    {"Denní trh", "Daily market"},
-    {"Nastavení", "Settings"},
-    {"Pravidla", "Rules"},
-    {"Ceny",                    "Prices"},
-    {"Poslední akce",           "Last actions"},
-    {"čas nenastaven",          "time not set"},
-    {"Červená LED zapnuta", "Red LED on"},
-    {"Červená LED vypnuta", "Red LED off"},
-    /* sentinel – signals end of table */
-    {"", ""}};
+static const translation cz_en[] = {{"Vypnuto", "Off"},
+                                    {"Zapnuto", "On"},
+                                    {"Odhlásit", "Logoff"},
+                                    {"Přihlásit", "Login"},
+                                    {"Neúspěšné přihlášení", "Unsuccessful login"},
+                                    {"Automato - přihlášení obsluhy", "Automato - login"},
+                                    {"Uživatelské jméno", "Username"},
+                                    {"Heslo", "Password"},
+                                    {"Automato", "Automato"},
+                                    {"automato", "automato"},
+                                    {"Automato - přihlášení obsluhy", "Automato - operator login"},
+                                    {"Automato - přihlášení", "Automato - login"},
+                                    {"Provoz", "Operation"},
+                                    {"Denní trh", "Daily market"},
+                                    {"Nastavení", "Settings"},
+                                    {"Pravidla", "Rules"},
+                                    {"Ceny", "Prices"},
+                                    {"Poslední akce", "Last actions"},
+                                    {"čas nenastaven", "time not set"},
+                                    {"Nastav", "Setup"},
+
+                                    /* sentinel – signals end of table */
+                                    {"", ""}};
 
 
 // translation function
@@ -55,8 +55,7 @@ const char *t(const char *instr) {
 
     /* Sequential search in the table (tiny, so fine) */
     for (size_t i = 0; cz_en[i].cz[0] != '\0'; ++i) {
-        if (strcmp(instr, cz_en[i].cz) == 0)
-            return cz_en[i].en; /* match found */
+        if (strcmp(instr, cz_en[i].cz) == 0) return cz_en[i].en; /* match found */
     }
 
     return instr; /* not found → fall back to original */
