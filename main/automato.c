@@ -1,5 +1,5 @@
 /*
- * automato
+ * automato.c
  */
 
 // avoid unused variables warnings
@@ -221,7 +221,6 @@ named_variable_t run_vars[NUMVALUES];
 
 // condition
 typedef struct {
-    uint8_t id;        // condition ID
     uint8_t active;    // condition active (1) or not (0)
     char left[255];    // left side of condition
     char operator[3];  // operator (==, !=, <, >, <=, >=)
@@ -230,19 +229,21 @@ typedef struct {
 
 } condition_item;
 condition_item conditions[MAXNUMCONDITONS] = {
-    {1, 1, "OTEPCZK", ">", "0", "REL1ON"},
-    {2, 1, "OTEPCZK", ">", "0", "REL2ON"},
-    {3, 1, "OTEPCZK", ">", "0", "REL3ON"},
-    {4, 1, "OTEPCZK", "<=", "0", "REL1OFF"},
-    {5, 1, "OTEPCZK", "<=", "0", "REL2OFF"},
-    {6, 1, "OTEPCZK", "<=", "0", "REL3OFF"},
-    {7, 1, "", "", "", ""}  // end of conditions
+    {1, "OTEPCZK", ">", "0", "REL1ON"},
+    {1, "OTEPCZK", ">", "0", "REL2ON"},
+    {1, "OTEPCZK", ">", "0", "REL3ON"},
+    {1, "OTEPCZK", ">", "0", "REDLEDON"},
+    {1, "OTEPCZK", "<=", "0", "REL1OFF"},
+    {1, "OTEPCZK", "<=", "0", "REL2OFF"},
+    {1, "OTEPCZK", "<=", "0", "REL3OFF"},
+    {1, "OTEPCZK", "<=", "0", "REDLEDOFF"},
+    {1, "", "", "", ""}  // end of conditions
 };  // end of conditions list
 
 // action_log
 typedef struct {
-    char action[255];  // action
-    char timestamp[50]; // timestamp
+    char action[255];    // action
+    char timestamp[50];  // timestamp
 } action_log_item;
 
 action_log_item last_actions_log[NUMLASTACTIONSLOG];
@@ -475,14 +476,12 @@ static void get_device_service_name(char* service_name, size_t max) {
 }
 
 /**
- * @brief obsluhuje dvojbarevnou LED 1 (OK/ERROR)
+ * @brief obsluhuje LED 1 (green - OK)
  */
 void wifi_led_1(void*) {
     while (1) {
-        gpio_set_level(STATUS_LED_GPIO_RED, led1_blink_states[led1_status].onoff_red_1);
         gpio_set_level(STATUS_LED_GPIO_GREEN, led1_blink_states[led1_status].onoff_green_1);
         vTaskDelay(led1_blink_states[led1_status].interval_ms_1 / portTICK_PERIOD_MS);
-        gpio_set_level(STATUS_LED_GPIO_RED, led1_blink_states[led1_status].onoff_red_2);
         gpio_set_level(STATUS_LED_GPIO_GREEN, led1_blink_states[led1_status].onoff_green_2);
         vTaskDelay(led1_blink_states[led1_status].interval_ms_2 / portTICK_PERIOD_MS);
     }
@@ -526,19 +525,19 @@ int r_parse_status() {
 /* ------------------------------------------------------------------
  *  Action‑log helper
  * ------------------------------------------------------------------*/
-static void log_action(const char *action)
+static void log_action(const char* action)
 /* keeps last_actions_log[] alphabetically sorted and time‑stamped        */
 {
     /* 1. make timestamp "YYYY‑MM‑DD HH:MM:SS" ------------------------- */
     char ts[20];
     struct tm tm_now;
-    localtime_r(&now_sntp, &tm_now);                    /* uses your SNTP time */
+    localtime_r(&now_sntp, &tm_now); /* uses your SNTP time */
     strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", &tm_now);
 
     /* 2. search for existing entry or free slot ---------------------- */
     int free_idx = -1, hit_idx = -1;
     for (int i = 0; i < NUMLASTACTIONSLOG; ++i) {
-        if (last_actions_log[i].action[0] == '\0') {        /* empty row */
+        if (last_actions_log[i].action[0] == '\0') { /* empty row */
             if (free_idx == -1) free_idx = i;
         } else if (strcmp(last_actions_log[i].action, action) == 0) {
             hit_idx = i;
@@ -548,13 +547,11 @@ static void log_action(const char *action)
 
     /* 3. update or create ------------------------------------------- */
     int idx = (hit_idx != -1) ? hit_idx : free_idx;
-    if (idx != -1) {                                         /* have room */
-        strncpy(last_actions_log[idx].action, action,
-                sizeof(last_actions_log[idx].action) - 1);
+    if (idx != -1) { /* have room */
+        strncpy(last_actions_log[idx].action, action, sizeof(last_actions_log[idx].action) - 1);
         last_actions_log[idx].action[sizeof(last_actions_log[idx].action) - 1] = '\0';
 
-        strncpy(last_actions_log[idx].timestamp, ts,
-                sizeof(last_actions_log[idx].timestamp) - 1);
+        strncpy(last_actions_log[idx].timestamp, ts, sizeof(last_actions_log[idx].timestamp) - 1);
         last_actions_log[idx].timestamp[sizeof(last_actions_log[idx].timestamp) - 1] = '\0';
     }
     /* else: table full and action new – nothing is logged (or replace
@@ -564,8 +561,7 @@ static void log_action(const char *action)
     for (int i = 0; i < NUMLASTACTIONSLOG - 1; ++i)
         for (int j = i + 1; j < NUMLASTACTIONSLOG; ++j)
             if (last_actions_log[i].action[0] && last_actions_log[j].action[0] &&
-                strcmp(last_actions_log[i].action, last_actions_log[j].action) > 0)
-            {
+                strcmp(last_actions_log[i].action, last_actions_log[j].action) > 0) {
                 action_log_item tmp = last_actions_log[i];
                 last_actions_log[i] = last_actions_log[j];
                 last_actions_log[j] = tmp;
@@ -808,8 +804,7 @@ void start_mdns_service() {
 // Actions
 // Parameter must be string ended by /0
 static void do_action(char* action) {
-
-    log_action(action);          /* <-- NEW line, first inside the function */
+    log_action(action); /* <-- NEW line, first inside the function */
 
     if (strcmp(action, "REL1ON") == 0) {
         ESP_LOGI(TAG, "Relay1 ON");
@@ -829,6 +824,12 @@ static void do_action(char* action) {
     } else if (strcmp(action, "REL3OFF") == 0) {
         ESP_LOGI(TAG, "Relay3 OFF");
         gpio_set_level(RELAY3, 0);
+    } else if (strcmp(action, "LEDON") == 0) {
+        ESP_LOGI(TAG, "%s", "Red LED ON");
+        gpio_set_level(STATUS_LED_GPIO_RED, 1);
+    } else if (strcmp(action, "LEDOFF") == 0) {
+        ESP_LOGI(TAG, "%s", "Red led OFF");
+        gpio_set_level(STATUS_LED_GPIO_RED, 0);
     } else {
         ESP_LOGW(TAG, "Unknown action: %s", action);
     }
@@ -1019,8 +1020,8 @@ static void evaluate_do(void* pv) {
         }
 
         //// conditions evaluation cycle
-        
-        if (nntptime_status==1 && strcmp(current_ote_price_str, "--") != 0) {
+
+        if (nntptime_status == 1 && strcmp(current_ote_price_str, "--") != 0) {
             /* evaluate only if certain conditions are met:
             - nntptime_status == 1 (valid time)
             - current_ote_price_str != "--" (valid price)

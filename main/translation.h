@@ -1,4 +1,8 @@
-//translations.h
+/*
+ * translation.h
+ */
+
+
 
 #include <stddef.h>
 #include <stdint.h>
@@ -33,7 +37,11 @@ static const translation cz_en[] = {
     {"Denní trh", "Daily market"},
     {"Nastavení", "Settings"},
     {"Pravidla", "Rules"},
-
+    {"Ceny",                    "Prices"},
+    {"Poslední akce",           "Last actions"},
+    {"čas nenastaven",          "time not set"},
+    {"Červená LED zapnuta", "Red LED on"},
+    {"Červená LED vypnuta", "Red LED off"},
     /* sentinel – signals end of table */
     {"", ""}};
 
