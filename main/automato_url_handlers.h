@@ -67,15 +67,26 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "<!DOCTYPE html><html><head>"
           "<meta name='viewport' content='width=device-width, initial-scale=1'>"
           "<style>"
-          "body{font-family:Helvetica,Arial,sans-serif;margin:0;}"
-          ".wrapper{max-width:800px;margin:0;border:1px solid #bbb;}"
-          ".headbar{display:flex;align-items:center;justify-content:space-between;"
-          "padding:6px 8px;box-sizing:border-box;}"
-          ".grid{display:grid;grid-template-columns:1fr 1fr;}"
-          ".prices,.actions{border-top:1px solid #bbb;padding:6px;box-sizing:border-box;}"
-          ".actions{border-left:1px solid #bbb;}"
-          ".prices b{color:#c00;}"
-          ".logo-txt{font-weight:bold;font-size:1.2rem;margin-left:6px;}"
+          "body{font-family:Helvetica,Arial,sans-serif;margin:0;background:#fafafa}"
+          /* common wrapper */
+          ".wrapper{"
+          "    margin:20px 0 0 20px;"
+          "    max-width:860px;"
+          "    border:1px solid #bbb;"
+          "    padding:0 20px 20px 20px;"
+          "    background:#fff;"
+          "}"
+          /* logo bar (same as /setup) */
+          ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
+          ".logo img{height:38px;width:auto}"
+          ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
+          /* rest of layout */
+          ".grid{display:grid;grid-template-columns:1fr 1fr}"
+          ".prices,.actions{border-top:1px solid #bbb;padding:6px;box-sizing:border-box}"
+          ".actions{border-left:1px solid #bbb}"
+          ".prices b{color:#c00}"
+          /* one unified horizontal bar (date + IP + button) */
+          ".headbar{display:flex;justify-content:space-between;align-items:center;height:46px;padding:0 8px;}"
           "</style>"
           "<script>"
           "function logoff(){location.href='/logout';}\n"
@@ -105,7 +116,13 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "  catch(e){console.warn('fetch',e);} }\n"
           "window.addEventListener('load',()=>{fetchData(); setInterval(fetchData,1000);});"
           "</script>"
-          "</head><body><div class='wrapper'>");
+          "</head><body>"
+          /* unified header -------------------------------------------------- */
+          "<div class='logo'>"
+          "<img src='/logo' alt='automato'>"
+          "<span>automato</span>"
+          "</div>"
+          "<div class='wrapper'>");
 
     /* ---------- head bar --------------------------------------------- */
     char dt_buf[64];
@@ -119,10 +136,6 @@ esp_err_t root_get_handler(httpd_req_t *req) {
 
     chunk(req,
           "<div class='headbar'>"
-          "<span style='display:flex;align-items:center;'>"
-          "<img src='/logo' alt='automato' style='width:15%;height:auto;'>"
-          "<span class='logo-txt'>automato</span>"
-          "</span>"
           "<span id='datetime'>");
     chunk(req, dt_buf);
     chunk(req,
@@ -143,7 +156,7 @@ esp_err_t root_get_handler(httpd_req_t *req) {
 
     /* prices column (UL gets id) -------------------------------------- */
     chunk(req, "<div class='prices'><h3>");
-    chunk(req, t("Ceny"));
+    chunk(req, t("Ceny OTE"));
     chunk(req, "</h3><ul id='prices-list' style='margin:0;padding-left:1em;'>");
     for (size_t i = 0; i < n_prices; ++i) {
         char line[64];
@@ -447,8 +460,14 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
           /* ---------- CSS --------------------------------------------- */
           "<style>"
           "body{font-family:Helvetica,Arial,sans-serif;margin:0;background:#fafafa}"
-          ".wrapper{margin:20px 0 0 20px;max-width:860px;border:1px solid #bbb;"
-          "         padding:20px;background:#fff}"
+          /* common wrapper */
+          ".wrapper{"
+          "    margin:20px 0 0 20px;"
+          "    max-width:860px;"
+          "    border:1px solid #bbb;"
+          "    padding:0 20px 20px 20px;"
+          "    background:#fff;"
+          "}"
           "table{width:100%;border-collapse:collapse;margin-top:10px}"
           "th,td{border:1px solid #ccc;padding:6px;text-align:center}"
           "th{background:#eee}"
@@ -458,6 +477,7 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
           ".logo img{height:38px;width:auto}"
           ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
+          ".headbar{display:flex;justify-content:space-between;align-items:center;height:46px;padding:0 8px;}"
           "</style>"
           "</head><body>"
           /* ---------- page header with logo (top‑left) ----------------- */

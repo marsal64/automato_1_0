@@ -63,6 +63,7 @@ static const translation cz_en[] = {{"Vypnuto", "Off"},
                                     {"pá", "Fri"},
                                     {"so", "Sat"},
                                     {"ne", "Sun"},
+                                    {"Ceny OTE", "Prices OTE"},
 
 
                                     /* sentinel – signals end of table */
