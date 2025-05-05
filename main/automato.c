@@ -1,5 +1,5 @@
 /*
- * s150u_wifi
+ * automato
  */
 
 // avoid unused variables warnings
