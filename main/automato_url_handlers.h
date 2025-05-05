@@ -193,7 +193,7 @@ esp_err_t data_get_handler(httpd_req_t *req) {
         strftime(dt_buf, sizeof(dt_buf), "%Y-%m-%d&nbsp;%H:%M:%S", &timeinfo_sntp);
         int dw = timeinfo_sntp.tm_wday;
         if (dw < 0 || dw > 6) dw = 0;
-        snprintf(dt_buf + strlen(dt_buf), sizeof(dt_buf) - strlen(dt_buf), "&nbsp;(%s)", translatedays[dw]);
+        snprintf(dt_buf + strlen(dt_buf), sizeof(dt_buf) - strlen(dt_buf), "&nbsp;(%s)", t(translatedays[dw]));
     } else
         strcpy(dt_buf, t("čas nenastaven"));
 
@@ -209,7 +209,7 @@ esp_err_t data_get_handler(httpd_req_t *req) {
         do {
             nvs_entry_info_t info;
             nvs_entry_info(it, &info);
-            if (!strncmp(info.key, "o_", 2) && strlen(info.key) == 13 &&
+            if (!strncmp(info.key, "o_", 2) && strlen(info.key) == 12 &&
                 n_prices < sizeof(prices) / sizeof(prices[0])) {
                 strncpy(prices[n_prices].key, info.key + 2, 12);
                 prices[n_prices].key[12] = 0;
@@ -439,17 +439,36 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
     chunk(req,
           "<!DOCTYPE html><html lang='cs'><head>"
           "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-          "<title>Nastavení</title>"
+          "<title>");
+    chunk(req, t("Nastavení"));
+    chunk(req,
+          "</title>"
+
+          /* ---------- CSS --------------------------------------------- */
           "<style>"
           "body{font-family:Helvetica,Arial,sans-serif;margin:0;background:#fafafa}"
-          ".wrapper{max-width:860px;margin:20px auto;border:1px solid #bbb;padding:20px;background:#fff}"
+          ".wrapper{margin:20px 0 0 20px;max-width:860px;border:1px solid #bbb;"
+          "         padding:20px;background:#fff}"
           "table{width:100%;border-collapse:collapse;margin-top:10px}"
           "th,td{border:1px solid #ccc;padding:6px;text-align:center}"
           "th{background:#eee}"
           "button{padding:4px 10px;margin:2px}"
           ".wide{width:160px}"
+          /* logo bar */
+          ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
+          ".logo img{height:38px;width:auto}"
+          ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
           "</style>"
-          "</head><body><div class='wrapper'>"
+          "</head><body>"
+          /* ---------- page header with logo (top‑left) ----------------- */
+          "<div class='logo'>"
+          "<img src='/logo' alt='automato'>"
+          "<span>");
+    chunk(req, t("automato"));
+    chunk(req,
+          "</span>"
+          "</div>"
+          "<div class='wrapper'>"
           "<h2>");
     chunk(req, t("Nastavení podmínek"));
     chunk(req,

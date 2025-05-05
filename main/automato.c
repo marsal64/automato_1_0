@@ -84,7 +84,7 @@ static int wifi_retry_count = 0;
 //// S150U variables start ////////////////////
 
 // názvy dnů
-char translatedays[][10] = {"??", "ne", "po", "út", "st", "čt", "pá", "so"};
+char translatedays[][10] = {"ne", "po", "út", "st", "čt", "pá", "so"};
 // "zpracovaná data"
 uint8_t i_processed_data = 0;
 
