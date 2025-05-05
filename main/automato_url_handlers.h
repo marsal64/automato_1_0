@@ -21,102 +21,123 @@ static void nav_bar(char *buf, size_t max, int active_idx) {
 /*----------------------------------------------------------------------------
  * Root page  ("Operation" – index 0)
  *--------------------------------------------------------------------------*/
-esp_err_t root_get_handler(httpd_req_t *req) {
-    /* 1. Authorisation -------------------------------------------------- */
-    char cookie_value[128];
-    if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) ||
-        strcmp(cookie_value, "1") != 0 || current_user_id == -1) {
-        httpd_resp_set_status(req, "307 Temporary Redirect");
-        httpd_resp_set_hdr(req, "Location", "/login");
-        httpd_resp_send(req, NULL, 0);
-        return ESP_OK;
+/* ----------------  MAIN PAGE  ( “/” )  ------------------------------ */
+
+static esp_err_t root_get_handler(httpd_req_t *req)
+{
+    /* ---------- 1. collect runtime data ---------------------------- */
+
+    /* a) current “YYYYMMDDHH” and hour part */
+    char now_key[13] = {0};
+    if (nntptime_status == 1) {
+        snprintf(now_key, sizeof(now_key), "%s", r_rrrrmmddhh);   /* already built elsewhere */
     }
 
-    /* 2.  date / time / weekday / ip ----------------------------------- */
-    time_t now;
-    time(&now);
-    struct tm tm_info;
-    localtime_r(&now, &tm_info);
-    static const char *dow_cz[] = {"Ne", "Po", "Út", "St", "Čt", "Pá", "So"};
-    static const char *dow_en[] = {"Sun", "Mon", "Tue", "Wed",
-                                   "Thu", "Fri", "Sat"};
-    const char *dow = (gst_lang == LANG_CZ) ? dow_cz[tm_info.tm_wday]
-                                            : dow_en[tm_info.tm_wday];
-    char timestr[64];
-    strftime(timestr, sizeof(timestr), "%d.%m.%Y&nbsp;%H:%M:%S", &tm_info);
+    /* b) gather ALL price records from NVS (“o_YYYYMMDDHH”) ---------- */
+    typedef struct { char key[13]; char val[16]; } price_t;
+    price_t prices[400];                /* plenty – enlarge if needed */
+    size_t  n_prices = 0;
 
-    char statusline[256];
-    snprintf(statusline, sizeof(statusline),
-             "<span class=\"date\">%s</span>&nbsp;&nbsp;&nbsp;"
-             "<span class=\"weekday\">%s</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
-             "<span class=\"ip\">%s</span>",
-             timestr, dow, ipaddress);
+    nvs_iterator_t it = NULL;
+    if (nvs_entry_find(NVS_DEFAULT_PART_NAME, "storage", NVS_TYPE_STR, &it) == ESP_OK) {
+        do {
+            nvs_entry_info_t info;
+            nvs_entry_info(it, &info);
 
-    /* 3. navigation ------------------------------------------------------ */
-    char navbar[256];
-    nav_bar(navbar, sizeof(navbar), 0); /* 0 = Operation page */
-    ESP_LOGI(TAG, "Navbar: %s", navbar);
+            if (strncmp(info.key, "o_", 2) == 0 && strlen(info.key) == 13) {
+                if (n_prices < sizeof(prices)/sizeof(prices[0])) {
+                    strncpy(prices[n_prices].key, info.key + 2, 12); /* strip “o_” */
+                    prices[n_prices].key[12] = '\0';
 
-    /* 4. Build HTML ------------------------------------------------------ */
-    char html[RESP_SIZE];
-    const char *html_lang = (gst_lang == LANG_CZ) ? "cs" : "en";
+                    size_t sz = sizeof(prices[n_prices].val);
+                    esp_err_t e = nvs_get_str(nvs_handle_storage, info.key,
+                                              prices[n_prices].val, &sz);
+                    if (e == ESP_OK) ++n_prices;
+                }
+            }
+        } while (nvs_entry_next(&it) == ESP_OK);
+        nvs_release_iterator(it);
+    }
+    /* sort newest → oldest (string order works for YYYYMMDDHH) */
+    qsort(prices, n_prices, sizeof(price_t),
+          [](const void *a, const void *b){
+              return strcmp(((price_t*)b)->key, ((price_t*)a)->key);
+          });
 
-    size_t n = snprintf(
-        html, sizeof(html),
-        "<!DOCTYPE html><html lang=\"%s\"><head>"
-        "<meta charset=\"UTF-8\"><title>%s</title>"
+    /* c) build list of last actions (already alphabetically sorted) */
+    /* ------------------------------------------------------------- */
 
-        "<style>body{margin:0;font-family:Arial,sans-serif;}"
+    /* ---------- 2. compose HTML ---------------------------------- */
 
-        // header style
-        "header{display:flex;align-items:center;padding:4px 20px;box-shadow:0 "
-        "2px 4px rgba(0,0,0,.1);}"
-        "header img{height:40px;}"
+    httpd_resp_set_type(req, "text/html; charset=UTF-8");
 
-        // status line item styles
-        ".status{flex:1;text-align:center;font-size:.95rem;}"
-        ".status .date{font-weight:600;}"
-        ".status .weekday{margin:0 6px;color:#555;}"
-        ".status .ip{font-family:monospace;color:#006;}"
+    /* small helper to spit string literals */
+    auto OUT = [&](const char *s){ httpd_resp_send_chunk(req, s, HTTPD_RESP_USE_STRLEN); };
 
-        // nav tabs style
-        "nav{display:flex;justify-content:left;gap:12px;margin:6px 10px;}"
-        "a.tab{padding:3px 8px;text-decoration:none;color:#000;border:1px "
-        "solid #bbb;border-radius:4px;font-size:.75rem;}"
-        "a.tab.active{background:#e6f2ff;border-color:#339;}"
+    OUT("<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+        "<style>"
+        "body{font-family:Helvetica,Arial,sans-serif;max-width:180ch;margin:0 auto;padding:4px;}"
+        ".grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));grid-gap:6px;}"
+        ".head{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;}"
+        ".prices, .actions{border:1px solid #ccc;border-radius:4px;padding:4px;}"
+        ".prices b{color:#c00;}"
+        ".logo{font-weight:bold;font-size:1.2rem;}"
+        "</style></head><body>");
 
-        // button logout style
-        "button.logout{padding:2px 6px;font-size:.7rem;cursor:pointer;}"
+    /* ---------- header row --------------------------------------- */
+    char dt_buf[64];
+    if (nntptime_status) {
+        strftime(dt_buf,sizeof(dt_buf),"%Y-%m-%d&nbsp;%H:%M:%S",&timeinfo_sntp);
+        size_t dw = timeinfo_sntp.tm_wday;          /* 0..6 (Sun..) */
+        if (dw>6) dw = 0;
+        snprintf(dt_buf+strlen(dt_buf), sizeof(dt_buf)-strlen(dt_buf),
+                 "&nbsp;(%s)", translatedays[dw]);
+    } else strcpy(dt_buf, "time‑not‑set");
 
-        "</style>"
+    OUT("<div class='grid'>"
+        "<div class='head'>"
+          "<span class='logo'>Automato</span>"
+          "<span>");
+    OUT(dt_buf);
+    OUT("</span>"
+          "<span>");
+    OUT(ipaddress);
+    OUT("</span>"
+          "<form action='/logout' method='post' style='margin:0'>"
+          "<button>Log&nbsp;off</button>"
+          "</form>"
+        "</div>");
 
-        "<script>"
-        "function logoff(){window.location.href='/logout';}"
-        "</script>" /* FIX: removed extra space */
+    /* ---------- left column – prices ------------------------------ */
+    OUT("<div class='prices'><h3>Prices</h3><ul style='margin:0;padding:0 0 0 1em;'>");
+    for (size_t i=0;i<n_prices;++i){
+        bool is_now = (strcmp(prices[i].key, now_key)==0);
+        char line[64];
+        snprintf(line,sizeof(line),"<li>%s&nbsp;:&nbsp;%s</li>",prices[i].key,prices[i].val);
+        if (is_now){
+            OUT("<b>");
+            OUT(line);
+            OUT("</b>");
+        }else OUT(line);
+    }
+    OUT("</ul></div>");
 
-        "</head>" /* FIX: removed extra space */
-        "<body>"
-        "<header>"
-        "<img src=\"/logo\" alt=\"%s\">"
-        "<span class=\"status\">%s</span>"
-        "<button class=\"logout\" onclick=\"logoff()\">%s</button>"
-        "</header>"
+    /* ---------- right column – actions ---------------------------- */
+    OUT("<div class='actions'><h3>Last actions</h3><ul style='margin:0;padding:0 0 0 1em;'>");
+    for (int i=0;i<NUMLASTACTIONSLOG;++i){
+        if (last_actions_log[i].action[0]=='\0') break;
+        char line[128];
+        snprintf(line,sizeof(line),"<li>%s&nbsp;→&nbsp;%s</li>",
+                 last_actions_log[i].action,last_actions_log[i].timestamp);
+        OUT(line);
+    }
+    OUT("</ul></div></div>");     /* close grid + body */
+    OUT("</body></html>");
 
-        "%s" /* navbar slot */
-
-        "<!--  page content would go here  -->"
-
-        "</body></html>",
-
-        html_lang,                 /* <html lang=...> */
-        t("Automato"),             /* <title>         */
-        t("Automato"),             /* logo alt        */
-        statusline, t("Odhlásit"), /* button label    */
-        navbar);
-
-    httpd_resp_send(req, html, n);
-    return ESP_OK;
+    return httpd_resp_send_chunk(req, NULL, 0);     /* end of chunks */
 }
+
+/* -------------------------------------------------------------- */
 
 
 /*----------------------------------------------------------------------------
