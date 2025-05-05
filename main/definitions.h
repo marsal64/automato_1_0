@@ -19,11 +19,14 @@
 #define INIT_PASSWORD_AUTOMATO "0000"
 #define INIT_PASSWORD_ADMIN "1111"
 
+// define maximum number of conditions
+#define MAXNUMCONDITONS 20
 
 // jednoznačné device id:
 #define deviceid "automato"
 // maximum number of retries when provisioning
 #define PROV_MGR_MAX_RETRY_CNT 3
+
 //
 // ssid prefix pro bluetooth provisioning
 #define SSID_PREF "PROV_"
@@ -31,6 +34,8 @@
 #define BLE_PASSWORD	"auto1234"
 // pokud je PROV_SHOW_QR definováno, používá se QR. Bez QR - řádek zakomentovat
 #define PROV_SHOW_QR
+
+//// GPIOS
 // RESET_BUTTON GPIO (čtení stavu RESET)
 #define WIFI_INIT_BUTTON_GPIO GPIO_NUM_9
 // Status LED GPIO Red
@@ -39,7 +44,11 @@
 #define STATUS_LED_GPIO_GREEN GPIO_NUM_4
 // Status LED GPIO Yellow
 #define STATUS_LED_GPIO_YELLOW GPIO_NUM_38
-
+//
+//Relays
+#define RELAY1 GPIO_NUM_8
+#define RELAY2 GPIO_NUM_6
+#define RELAY3 GPIO_NUM_7
 
 //// ote_read related definitions
 // chunk to read
@@ -92,52 +101,6 @@
 // for language tranlsations
 #define MAX_TRANS_STRING_CZ_LEN 100
 #define MAX_TRANS_STRING_EN_LEN 90
-
-
-
-#define DOORTIMEOUT		20					// Otevrene dvere v sekundach - nic se nedeje
-#define DOORTIMEOUTOFF	120 + DOORTIMEOUT	// Otevrene dvere v sekundach - cas do vypnuti po uplynuti casu co se nic nedeje
-#define DEFNAGSCREEN	5					// Uvodni obrazovka s logem - v sekundach
-#define ON_TIMEOUT		300					// Timeout systemu v sekundach - prejde na chybove hlaseni
-//#define ON_TIMEOUT_OFF	600					// Timeout systemu v sekundach - po prechodu so START pokud se sauna nezapne nebo z jineho rezimu do START
-#define ON_TIMEOUT_OFF	3600				// Timeout systemu v sekundach - po prechodu so START pokud se sauna nezapne nebo z jineho rezimu do START
-#define MAXTIMEODLOZENY	20ul				// Maximalni odlozeny start v hodinach
-
-#define HODINA			3600ul				// Definice hodiny v sekundach
-#define PULNOC			86400ul				// Definice hodiny v sekundach
-#define LOWBATTVALUE	2800				// Nejnizsi mozne napeti baterie v mV
-// Standartni sauna
-#define DEFAULTTEMP			80				// Vychozi teplota
-#define DEFMINTEMP			40				// Minimalni teplota
-#define DEFMAXTEMP			110				// Maximalni teplota
-#define DEFMAXTEMPE			135				// Maximalni teplota vypiname ERR
-#define DEFTIMELONGUSE		3				// Vychozi nastavena doba provozu sauny v hodinach
-#define MAXTIMELONGUSE		20ul			// Max doba provozu sauny v hodinach
-// Infra sauna
-#define DEFAULTTEMPINFRA	50				// Vychozi teplota
-#define DEFMINTEMPINFRA		20				// Minimalni teplota
-#define DEFMAXTEMPINFRA		80				// Maximalni teplota
-#define DEFMAXTEMPINFRAE	85				// Maximalni teplota vypiname ERR
-#define DEFTIMELONGUSEINFRA	1				// Vychozi nastavena doba provozu sauny v hodinach
-#define MAXTIMELONGUSEINFRA	3ul				// Max doba provozu sauny v hodinach
-// Parni sauna
-#define DEFAULTTEMPPARA		35				// Vychozi teplota
-#define DEFMINTEMPPARA		20				// Minimalni teplota parni
-#define DEFMAXTEMPPARA		55				// Maximalni teplota parni
-#define DEFMAXTEMPPARAE		65				// Maximalni teplota parni vypiname ERR
-#define DEFTIMELONGUSEPARA	3				// Vychozi nastavena doba provozu sauny v hodinach
-#define MAXTIMELONGUSEPARA	20ul			// Max doba provozu sauny v hodinach
-
-// minimální a maximálno doba běhu
-#define MINDOBABEHU		(15 * 60)
-#define MINDOBABEHU_STR	"00:15"
-#define MAXDOBABEHU		(20 * 60 * 60)
-#define MAXDOBABEHU_STR "20:00"
-
-#define MINODLO		(15 * 60)
-#define MINODLO_STR	"00:15"
-#define MAXODLO		(20 * 60 * 60)
-#define MAXODLO_STR "20:00"
 
 
 #define QUEUE_TX_LENGTH 10

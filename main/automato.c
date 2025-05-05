@@ -39,8 +39,14 @@
 #include "logo_favicon.h"
 #include "mdns.h"
 
-// Výrobní číslo default
-char vyrobnicislo[50] = "20240622-001";
+//// Výrobní číslo default
+char vyrobnicislo[50] = "20250505-001";
+
+//////////////////
+//// Run variables
+//////////////////
+// Run rrrrmmhh, taken from current time incl. timezone and summer time
+char r_rrrrmmddhh[100] = "-1";
 
 // global static "provisioned" variable
 static bool provisioned = false;
@@ -81,8 +87,8 @@ char translatedays[][10] = {"??", "ne", "po", "út", "st", "čt", "pá", "so"};
 uint8_t i_processed_data = 0;
 
 // additional
-static uint8_t nntptime_status;  // 0 - not OK, 1 - OK
-static char sntp_string[64];     // cas z internetu
+static uint8_t nntptime_status = 0;  // 0 - not OK, 1 - OK
+static char sntp_string[64];         // cas z internetu
 char ipaddress[64];
 
 // sntp time info
@@ -212,6 +218,17 @@ typedef struct {
 } named_variable_t;
 
 named_variable_t run_vars[NUMVALUES];
+
+// condition
+typedef struct {
+    uint8_t id;  // condition ID
+    uint8_t active; // condition active (1) or not (0)
+    char left[255]; // left side of condition
+    char right[255];    // right side of condition
+    char operator[3];  // operator (==, !=, <, >, <=, >=)
+
+} scondition;
+scondition conditions[MAXNUMCONDITONS];
 
 static const char* TAG = "AUTOMATO";
 
@@ -494,7 +511,7 @@ void obtain_time(void*) {
         time(&now_sntp);
         localtime_r(&now_sntp, &timeinfo_sntp);
         while (timeinfo_sntp.tm_year < (2023 - 1900) && ++retry < retry_count) {
-            ESP_LOGI(TAG, "Cekani na nastaveni casu z internetu... (%d/%d)", retry, retry_count);
+            ESP_LOGI(TAG, "Attempting to set the datetime from internet nntp (%d/%d)", retry, retry_count);
             vTaskDelay(2000 / portTICK_PERIOD_MS);
             time(&now_sntp);
             localtime_r(&now_sntp, &timeinfo_sntp);
@@ -508,7 +525,7 @@ void obtain_time(void*) {
             // ESP_LOGW(TAG, "Datum/cas z internetu: %s", sntp_string);
             nntptime_status = 1;  // OK
         } else {
-            ESP_LOGI(TAG, "Datum/cas z internetu: nespravny");
+            ESP_LOGI(TAG, "Datetime from internet nntp not valid");
             nntptime_status = 0;  // not OK
         }
 
@@ -720,6 +737,86 @@ void start_mdns_service() {
 }
 
 
+// Actions
+// Parameter must be string ended by /0
+static void do_action(char* action) {
+    if (strcmp(action, "R1ON") == 0) {
+        ESP_LOGI(TAG, "Relay1 ON");
+        // gpio_set_level(RELAY1, 1);
+    } else if (strcmp(action, "R1OFF") == 0) {
+        ESP_LOGI(TAG, "Relay1 OFF");
+        // gpio_set_level(RELAY1, 0);
+    } else if (strcmp(action, "R2ON") == 0) {
+        ESP_LOGI(TAG, "Relay2 ON");
+        // gpio_set_level(RELAY2, 1);
+    } else if (strcmp(action, "R2OFF") == 0) {
+        ESP_LOGI(TAG, "Relay2 OFF");
+        // gpio_set_level(RELAY2, 0);
+    } else if (strcmp(action, "R3ON") == 0) {
+        ESP_LOGI(TAG, "Relay3 ON");
+        // gpio_set_level(RELAY3, 1);
+    } else if (strcmp(action, "R3OFF") == 0) {
+        ESP_LOGI(TAG, "Relay3 OFF");
+        // gpio_set_level(RELAY3, 0);
+    } else {
+        ESP_LOGW(TAG, "Unknown action: %s", action);
+    }
+}
+
+
+// Task to evaluate variables, conditions and do actions
+static void evaluate_do(void* pv) {
+    while (1) {
+        //////// evaluate variables
+        /*
+                r_rrrrmmddhh - current rrrrmmddhh
+                o_rrrrmmddhh - price for rrrrmmddhh read from nvs
+        */
+
+        //// evaluate r_rrrrmmddhh
+        if (nntptime_status == 1) {
+            snprintf(r_rrrrmmddhh, sizeof(r_rrrrmmddhh), "%d%02d%02d%02d",
+                     timeinfo_sntp.tm_year + 1900,  // RRRR
+                     timeinfo_sntp.tm_mon + 1,      // MM
+                     timeinfo_sntp.tm_mday,         // DD
+                     timeinfo_sntp.tm_hour + 1);    // HH 1-24
+
+            ESP_LOGI(TAG, "Current r_rrrrmmhh for evaluation:%s", r_rrrrmmddhh);
+
+        } else {
+            ESP_LOGW(TAG, "NTP time not set because of not valid nntptime_status");
+        }
+
+        // current price
+        char o_rrrrmmddhh[9];
+
+        // find current price from nvs
+
+
+        // !!! dummy actions here
+        // do_action("R1ON");
+
+        //
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
+
+
+/* helper:  "YYYYMMDDHH" → time_t (returns 0 on error) */
+static time_t ymdh_to_time(const char* s) {
+    int y, m, d, h;
+    if (sscanf(s, "%4d%2d%2d%2d", &y, &m, &d, &h) != 4) return 0;
+
+    struct tm t = {0};
+    t.tm_year = y - 1900;
+    t.tm_mon = m - 1;
+    t.tm_mday = d;
+    t.tm_hour = h;
+    t.tm_isdst = -1;   /* let mktime() figure DST */
+    return mktime(&t); /* 0 if date is invalid    */
+}
+
+
 // Task to grab & log the OTE data every minute
 static void ote_read(void* pv) {
     const char* URL = "https://www.ote-cr.cz/cs/kratkodobe-trhy/elektrina/denni-trh";
@@ -848,7 +945,37 @@ static void ote_read(void* pv) {
                         char ts[13];
                         snprintf(ts, sizeof(ts), "%s%02d", yyyymmdd, hour);
                         ESP_LOGI(TAG, "%s: %s", ts, prices[hour - 1]);
+
+                        // refresh/save to nvs
+                        {
+                            char key[16]; /* "o_yyyymmddhh"   */
+                            snprintf(key, sizeof(key), "o_%s%02d", yyyymmdd, hour);
+
+                            /* read the value, if it exists */
+                            char old_val[16] = {0};
+                            size_t sz = sizeof(old_val);
+                            esp_err_t err = nvs_get_str(nvs_handle_storage, key, old_val, &sz);
+
+                            /* store when key is missing OR value differs */
+                            if (err == ESP_ERR_NVS_NOT_FOUND ||                      /* not in NVS   */
+                                (err == ESP_OK && strcmp(old_val, prices[hour - 1])) /* different    */
+                            ) {
+                                ESP_LOGI(TAG, "NVS update %s: \"%s\" → \"%s\"", key,
+                                         (err == ESP_OK) ? old_val : "<none>", prices[hour - 1]);
+
+                                err = nvs_set_str(nvs_handle_storage, key, prices[hour - 1]);
+                                if (err == ESP_OK) {
+                                    nvs_commit(nvs_handle_storage); /* make it stick */
+                                } else {
+                                    ESP_LOGE(TAG, "nvs_set_str %s failed (%d)", key, err);
+                                }
+                            } else {
+                                ESP_LOGI(TAG, "NVS %s not updated, same value %s found", key, old_val);
+                            }
+                        }
                     }
+
+                    //
                     scan = endtd + 5;
                 }
 
@@ -860,9 +987,42 @@ static void ote_read(void* pv) {
         }
         esp_http_client_cleanup(c);
 
-        /* warn if some hours missing ------------------------------------ */
+        //
         for (int h = 1; h <= 24; ++h)
-            if (!price_ok[h - 1]) ESP_LOGW(TAG, "Hour %d not parsed", h);
+            if (!price_ok[h - 1]) ESP_LOGW(TAG, "Hour %d not parsed from OTE", h);
+
+        // Tidy up old values from NVS, if present
+        {
+            /* 1. current timestamp from r_rrrrmmddhh ------------------- */
+            time_t now_ts = ymdh_to_time(r_rrrrmmddhh);
+            if (now_ts == 0) {
+                ESP_LOGE(TAG, "Failed to parse r_rrrrmmddhh=\"%s\"", r_rrrrmmddhh);
+            } else {
+                bool erased = false;
+
+                /* 2. walk through all string keys in namespace "storage" */
+                nvs_iterator_t it = NULL;
+                esp_err_t res = nvs_entry_find(NVS_DEFAULT_PART_NAME, "storage", NVS_TYPE_STR, &it);
+                while (res == ESP_OK) {
+                    nvs_entry_info_t info;
+                    nvs_entry_info(it, &info);
+
+                    /* keys of interest: "o_YYYYMMDDHH" (13 chars total) */
+                    if (strncmp(info.key, "o_", 2) == 0 && strlen(info.key) == 13) {
+                        time_t key_ts = ymdh_to_time(info.key + 2);
+                        if (key_ts && difftime(now_ts, key_ts) > 48 * 3600) {
+                            ESP_LOGI(TAG, "Erasing old NVS key %s", info.key);
+                            nvs_erase_key(nvs_handle_storage, info.key);
+                            erased = true;
+                        }
+                    }
+                    res = nvs_entry_next(&it);
+                }
+                nvs_release_iterator(it);
+
+                if (erased) nvs_commit(nvs_handle_storage); /* one flash op */
+            }
+        }
 
         vTaskDelay(PERIOD);
     }
@@ -905,6 +1065,17 @@ void app_main(void) {
 
     gpio_reset_pin(STATUS_LED_GPIO_YELLOW);
     gpio_set_direction(STATUS_LED_GPIO_YELLOW, GPIO_MODE_OUTPUT);
+
+    // reset Relays
+    gpio_reset_pin(RELAY1);
+    gpio_set_direction(RELAY1, GPIO_MODE_OUTPUT);
+    gpio_set_level(RELAY1, 0);
+    gpio_reset_pin(RELAY2);
+    gpio_set_direction(RELAY2, GPIO_MODE_OUTPUT);
+    gpio_set_level(RELAY2, 0);
+    gpio_reset_pin(RELAY3);
+    gpio_set_direction(RELAY3, GPIO_MODE_OUTPUT);
+    gpio_set_level(RELAY3, 0);
 
     // reset Wifi init button
     gpio_reset_pin(WIFI_INIT_BUTTON_GPIO);
@@ -1182,7 +1353,12 @@ void app_main(void) {
     // default httpd server priority should be 5, now giving lower: 3
     // ESP_LOGW(TAG, "free heap before OTE : %ld", esp_get_free_heap_size());
 
-    xTaskCreatePinnedToCore(ote_read, "ote_read", configMINIMAL_STACK_SIZE * 5, NULL, 3, NULL, 1);
+    xTaskCreatePinnedToCore(ote_read, "ote_read", configMINIMAL_STACK_SIZE * 5, NULL, configMAX_PRIORITIES - 4, NULL,
+                            1);
+
+    // initiate evaluate_actions task
+    xTaskCreatePinnedToCore(evaluate_do, "evaluate_do", configMINIMAL_STACK_SIZE * 5, NULL, configMAX_PRIORITIES - 5,
+                            NULL, 1);
 
     // ESP_LOGW(TAG, "free heap after OTE  : %ld", esp_get_free_heap_size());
 
@@ -1238,7 +1414,7 @@ void app_main(void) {
         comm_status = COMST_OK;
         // !!!
 
-        if (comm_status == COMST_OK && provisioned && device_connected) {
+        if (comm_status == COMST_OK && provisioned && device_connected && nntptime_status == 1) {
             led1_status = LED1_STATUS_OK;
         } else {
             led1_status = LED1_STATUS_ERROR;
