@@ -15,6 +15,8 @@
  #endif
  */
 
+ #define NUMLASTACTIONSLOG 20
+ 
 // default passwords
 #define INIT_PASSWORD_AUTOMATO "0000"
 #define INIT_PASSWORD_ADMIN "1111"

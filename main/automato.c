@@ -228,8 +228,8 @@ typedef struct {
     char right[255];   // right side of condition
     char action[255];  // action to be done if condition is true
 
-} scondition;
-scondition conditions[MAXNUMCONDITONS] = {
+} condition_item;
+condition_item conditions[MAXNUMCONDITONS] = {
     {1, 1, "OTEPCZK", ">", "0", "REL1ON"},
     {2, 1, "OTEPCZK", ">", "0", "REL2ON"},
     {3, 1, "OTEPCZK", ">", "0", "REL3ON"},
@@ -238,6 +238,14 @@ scondition conditions[MAXNUMCONDITONS] = {
     {6, 1, "OTEPCZK", "<=", "0", "REL3OFF"},
     {7, 1, "", "", "", ""}  // end of conditions
 };  // end of conditions list
+
+// action_log
+typedef struct {
+    char action[255];  // action
+    char timestamp[50]; // timestamp
+} action_log_item;
+
+action_log_item last_actions_log[NUMLASTACTIONSLOG];
 
 
 // logging tag
@@ -514,6 +522,56 @@ int r_parse_status() {
     return 0;  // OK response
 }
 
+
+/* ------------------------------------------------------------------
+ *  Action‑log helper
+ * ------------------------------------------------------------------*/
+static void log_action(const char *action)
+/* keeps last_actions_log[] alphabetically sorted and time‑stamped        */
+{
+    /* 1. make timestamp "YYYY‑MM‑DD HH:MM:SS" ------------------------- */
+    char ts[20];
+    struct tm tm_now;
+    localtime_r(&now_sntp, &tm_now);                    /* uses your SNTP time */
+    strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", &tm_now);
+
+    /* 2. search for existing entry or free slot ---------------------- */
+    int free_idx = -1, hit_idx = -1;
+    for (int i = 0; i < NUMLASTACTIONSLOG; ++i) {
+        if (last_actions_log[i].action[0] == '\0') {        /* empty row */
+            if (free_idx == -1) free_idx = i;
+        } else if (strcmp(last_actions_log[i].action, action) == 0) {
+            hit_idx = i;
+            break;
+        }
+    }
+
+    /* 3. update or create ------------------------------------------- */
+    int idx = (hit_idx != -1) ? hit_idx : free_idx;
+    if (idx != -1) {                                         /* have room */
+        strncpy(last_actions_log[idx].action, action,
+                sizeof(last_actions_log[idx].action) - 1);
+        last_actions_log[idx].action[sizeof(last_actions_log[idx].action) - 1] = '\0';
+
+        strncpy(last_actions_log[idx].timestamp, ts,
+                sizeof(last_actions_log[idx].timestamp) - 1);
+        last_actions_log[idx].timestamp[sizeof(last_actions_log[idx].timestamp) - 1] = '\0';
+    }
+    /* else: table full and action new – nothing is logged (or replace
+       the oldest/last entry here if you prefer)                       */
+
+    /* 4. simple alphabetic sort (bubble ≤10 items is fine) ----------- */
+    for (int i = 0; i < NUMLASTACTIONSLOG - 1; ++i)
+        for (int j = i + 1; j < NUMLASTACTIONSLOG; ++j)
+            if (last_actions_log[i].action[0] && last_actions_log[j].action[0] &&
+                strcmp(last_actions_log[i].action, last_actions_log[j].action) > 0)
+            {
+                action_log_item tmp = last_actions_log[i];
+                last_actions_log[i] = last_actions_log[j];
+                last_actions_log[j] = tmp;
+            }
+}
+
 void obtain_time(void*) {
     while (1) {
         // Wait for time to be set
@@ -750,6 +808,9 @@ void start_mdns_service() {
 // Actions
 // Parameter must be string ended by /0
 static void do_action(char* action) {
+
+    log_action(action);          /* <-- NEW line, first inside the function */
+
     if (strcmp(action, "REL1ON") == 0) {
         ESP_LOGI(TAG, "Relay1 ON");
         gpio_set_level(RELAY1, 1);
@@ -944,7 +1005,7 @@ static void evaluate_do(void* pv) {
         }
 
         // make working copy of conditions;
-        scondition w[MAXNUMCONDITONS];
+        condition_item w[MAXNUMCONDITONS];
         memcpy(w, conditions, sizeof(w));
 
         // substitutios of OTEPCZK (strings based)
@@ -1097,7 +1158,7 @@ static void ote_read(void* pv) {
                             yyyymmdd[6] = p[0];
                             yyyymmdd[7] = p[1];
                             yyyymmdd[8] = '\0';
-                            ESP_LOGI(TAG, "date %s", yyyymmdd);
+                            ESP_LOGI(TAG, "OTE date parsed: %s", yyyymmdd);
                         }
                     }
                 }
@@ -1146,7 +1207,7 @@ static void ote_read(void* pv) {
                     if (yyyymmdd[0]) {
                         char ts[13];
                         snprintf(ts, sizeof(ts), "%s%02d", yyyymmdd, hour);
-                        ESP_LOGI(TAG, "%s: %s", ts, prices[hour - 1]);
+                        ESP_LOGI(TAG, "OTE price grabbed from web for %s: %s", ts, prices[hour - 1]);
 
                         // refresh/save to nvs
                         {
@@ -1213,7 +1274,7 @@ static void ote_read(void* pv) {
                     if (strncmp(info.key, "o_", 2) == 0 && strlen(info.key) == 13) {
                         time_t key_ts = ymdh_to_time(info.key + 2);
                         if (key_ts && difftime(now_ts, key_ts) > 48 * 3600) {
-                            ESP_LOGI(TAG, "Erasing old NVS key %s", info.key);
+                            ESP_LOGW(TAG, "Erasing old NVS key %s", info.key);
                             nvs_erase_key(nvs_handle_storage, info.key);
                             erased = true;
                         }
@@ -1423,7 +1484,7 @@ void app_main(void) {
     if (err == ESP_OK) {
         strcpy(users[0].password, read_nvs_value);
         ESP_LOGI(TAG, "Password for automato user read from nvs");
-        ESP_LOGI(TAG, "Password for automato user read from nvs, %s", users[0].password);
+        // ESP_LOGI(TAG, "Password for automato user read from nvs, %s", users[0].password);
 
     } else {
         ESP_LOGI(TAG, "Standard password for the user automato loaded");
