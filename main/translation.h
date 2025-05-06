@@ -13,7 +13,7 @@ typedef enum { LANG_CZ = 0, LANG_EN, LANG_COUNT } LANGUAGE;
 
 // Active language (default Czech)
 // static uint8_t gst_lang = LANG_CZ;
-static uint8_t gst_lang = LANG_EN;
+static uint8_t gst_lang = LANG_CZ;
 
 // translation table
 typedef struct {
@@ -38,13 +38,12 @@ static const translation cz_en[] = {{"Vypnuto", "Off"},
                                     {"Nastavení", "Settings"},
                                     {"Pravidla", "Rules"},
                                     {"Ceny", "Prices"},
-                                    {"Poslední akce", "Last actions"},
+                                    {"Aktivované akce", "Activated actions"},
                                     {"čas nenastaven", "time not set"},
                                     {"Nastav", "Setup"},
                                     {"Uloženo", "Saved"},
                                     {"Chyba", "Error"},
                                     {"Povoleno", "Enabled"},
-                                    {"Akce", "Action"},
                                     {"Nová podmínka", "New condition"},
                                     {"Operátor", "Operator"},
                                     {"Zpět", "Back"},
@@ -56,6 +55,7 @@ static const translation cz_en[] = {{"Vypnuto", "Off"},
                                     {"Nastavení podmínek", "Conditions setting"},
                                     {"Potvrzení", "Confirm"},
                                     {"Nastavení", "Setup"},
+                                    {"Akce", "Actions"},
                                     {"po", "Mon"},
                                     {"út", "Tue"},
                                     {"st", "Wed"},

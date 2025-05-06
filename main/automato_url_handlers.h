@@ -98,9 +98,10 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "  const ulp=document.getElementById('prices-list'); ulp.innerHTML='';\n"
           "  d.prices.forEach(p=>{\n"
           "     const li=document.createElement('li');\n"
-          "     li.innerHTML = (p.key===d.now_key?'<b>':'') + "
-          "                    p.key + '&nbsp;:&nbsp;' + p.val + "
-          "                    (p.key===d.now_key?'</b>':'');\n"
+          "const k = p.key;"
+          "const fmt = `${k.slice(0,4)}-${k.slice(4,6)}-${k.slice(6,8)}&nbsp;&nbsp;&nbsp;${k.slice(8,10)}`;"
+          "li.innerHTML = (p.key === d.now_key ? '<b>' : '') + fmt + '&nbsp;:&nbsp;&nbsp;&nbsp;' + p.val + (p.key === d.now_key ? "
+          "'</b>' : '');"
           "     ulp.appendChild(li);\n"
           "  });\n"
           "  /* actions */\n"
@@ -148,7 +149,7 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "</span>"
           "<form action='/setup' method='get' style='margin:0'>"
           "<button type='submit'>");
-    chunk(req, t("Nastav"));
+    chunk(req, t("Akce"));
     chunk(req,
           "</button></form>"
           "</div>");
@@ -165,8 +166,13 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           " style='margin:0;padding-left:1em;list-style:none;'>");
 
     for (size_t i = 0; i < n_prices; ++i) {
-        char line[64];
-        snprintf(line, sizeof(line), "<li>%s&nbsp;:&nbsp;%s</li>", prices[i].key, prices[i].val);
+        char line[128];
+        snprintf(line, sizeof(line), "<li>%.4s-%.2s-%.2s&nbsp;&nbsp;&nbsp;%.2s&nbsp;:&nbsp;&nbsp;&nbsp;%s</li>",
+                 prices[i].key,      // YYYY
+                 prices[i].key + 4,  // MM
+                 prices[i].key + 6,  // DD
+                 prices[i].key + 8,  // HH
+                 prices[i].val);
         if (!strcmp(prices[i].key, now_key)) {
             chunk(req, "<b>");
             chunk(req, line);
@@ -179,7 +185,7 @@ esp_err_t root_get_handler(httpd_req_t *req) {
 
     /* actions column --------------------------------------------------- */
     chunk(req, "<div class='actions'><h3>");
-    chunk(req, t("Poslední akce"));
+    chunk(req, t("Aktivované akce"));
     chunk(req, "</h3><ul id='actions-list' style='margin:0;padding-left:1em;'>");
     for (int i = 0; i < NUMLASTACTIONSLOG && last_actions_log[i].action[0]; ++i) {
         char line[512];

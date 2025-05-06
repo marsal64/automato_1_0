@@ -11,8 +11,6 @@
 #include "translation.h"
 ////////////////////////
 
-#include "cJSON.h"
-
 #include <ctype.h>
 #include <esp_event.h>
 #include <esp_log.h>
@@ -29,6 +27,7 @@
 #include <wifi_provisioning/manager.h>
 #include <wifi_provisioning/scheme_ble.h>
 
+#include "cJSON.h"
 #include "driver/gpio.h"
 #include "driver/uart.h"
 // #include "esp_crt_bundle.h"
@@ -224,22 +223,16 @@ named_variable_t run_vars[NUMVALUES];
 // condition
 typedef struct {
     uint8_t active;    // condition active (1) or not (0)
-    char left[33];    // left side of condition
+    char left[33];     // left side of condition
     char operator[3];  // operator (==, !=, <, >, <=, >=)
-    char right[33];   // right side of condition
-    char action[33];  // action to be done if condition is true
+    char right[33];    // right side of condition
+    char action[33];   // action to be done if condition is true
 
 } condition_item;
 condition_item conditions[MAXNUMCONDITONS] = {
-    {1, "OTEPH", ">", "0", "REL1ON"},
-    {1, "OTEPH", ">", "0", "REL2ON"},
-    {1, "OTEPH", ">", "0", "REL3ON"},
-    {1, "OTEPH", ">", "0", "REDLEDON"},
-    {1, "OTEPH", "<=", "0", "REL1OFF"},
-    {1, "OTEPH", "<=", "0", "REL2OFF"},
-    {1, "OTEPH", "<=", "0", "REL3OFF"},
-    {1, "OTEPH", "<=", "0", "REDLEDOFF"},
-    {1, "", "", "", ""}  // end of conditions
+    {1, "OTEPH", ">", "0", "REL1ON"},   {1, "OTEPH", ">", "0", "REL2ON"},     {1, "OTEPH", ">", "0", "REL3ON"},
+    {1, "OTEPH", ">", "0", "REDLEDON"}, {1, "OTEPH", "<=", "0", "REL1OFF"},   {1, "OTEPH", "<=", "0", "REL2OFF"},
+    {1, "OTEPH", "<=", "0", "REL3OFF"}, {1, "OTEPH", "<=", "0", "REDLEDOFF"}, {1, "", "", "", ""}  // end of conditions
 };  // end of conditions list
 
 // action_log
@@ -283,18 +276,16 @@ void utf8_to_ascii(const char* utf8_str, char* ascii_str, size_t ascii_len) {
 
 
 
-static esp_err_t load_or_init_conditions(void)
-{
+static esp_err_t load_or_init_conditions(void) {
     esp_err_t err;
-    size_t    sz = sizeof(conditions);           /* how many bytes we expect */
+    size_t sz = sizeof(conditions); /* how many bytes we expect */
 
     /* try to read the binary blob *************************************/
     err = nvs_get_blob(nvs_handle_storage, "conditions", conditions, &sz);
 
     if (err == ESP_OK && sz == sizeof(conditions)) {
-        ESP_LOGI(TAG,
-                 "Conditions table loaded from NVS (size %zu B)", sz);
-        return ESP_OK;                           /* happy path              */
+        ESP_LOGI(TAG, "Conditions table loaded from NVS (size %zu B)", sz);
+        return ESP_OK; /* happy path              */
     }
 
     /* either the key was missing OR size/version mismatch  *************/
@@ -304,12 +295,8 @@ static esp_err_t load_or_init_conditions(void)
              err);
 
     /* write the compile‑time defaults you have in `conditions[]`       */
-    err = nvs_set_blob(nvs_handle_storage,
-                       "conditions",
-                       conditions,
-                       sizeof(conditions));
-    if (err == ESP_OK)
-        err = nvs_commit(nvs_handle_storage);
+    err = nvs_set_blob(nvs_handle_storage, "conditions", conditions, sizeof(conditions));
+    if (err == ESP_OK) err = nvs_commit(nvs_handle_storage);
 
     if (err == ESP_OK)
         ESP_LOGI(TAG, "Factory defaults stored.");
@@ -865,10 +852,10 @@ static void do_action(char* action) {
     } else if (strcmp(action, "REL3OFF") == 0) {
         ESP_LOGI(TAG, "Relay3 OFF");
         gpio_set_level(RELAY3, 0);
-    } else if (strcmp(action, "LEDON") == 0) {
+    } else if (strcmp(action, "REDLEDON") == 0) {
         ESP_LOGI(TAG, "%s", "Red LED ON");
         gpio_set_level(STATUS_LED_GPIO_RED, 1);
-    } else if (strcmp(action, "LEDOFF") == 0) {
+    } else if (strcmp(action, "REDLEDOFF") == 0) {
         ESP_LOGI(TAG, "%s", "Red led OFF");
         gpio_set_level(STATUS_LED_GPIO_RED, 0);
     } else {
@@ -1075,8 +1062,7 @@ static void evaluate_do(void* pv) {
                 double left_val = eval_expr(w[i].left, &ok_l);
                 double right_val = eval_expr(w[i].right, &ok_r);
                 if (!ok_l || !ok_r) {
-                    ESP_LOGE(TAG, "Invalid expression: %s %s %s", w[i].left, w[i].operator,
-                             w[i].right);
+                    ESP_LOGE(TAG, "Invalid expression: %s %s %s", w[i].left, w[i].operator, w[i].right);
                     continue; /* skip invalid lines */
                 }
 
@@ -1671,6 +1657,24 @@ void app_main(void) {
 
     // read or refreshs conditions from NVS
     ESP_ERROR_CHECK(load_or_init_conditions());
+
+    // set default language
+
+    // read language from nvs, if not found, set default
+    // and write to nvs
+    ESP_LOGI(TAG, "Loading language from NVS");
+
+
+    size_t sz = sizeof(gst_lang);
+    esp_err_t err = nvs_get_blob(nvs_handle_storage, "gst_lang", &gst_lang, &sz);
+    if (err == ESP_OK && sz == sizeof(gst_lang) && gst_lang < LANG_COUNT) {
+        gst_lang = LANG_CZ;  //Default
+    } else {
+        // first‐boot or invalid → write default
+        nvs_set_blob(nvs_handle_storage, "gst_lang", &gst_lang, sizeof(gst_lang));
+        nvs_commit(nvs_handle_storage);
+    }
+
 
     // dummy ticks cycle
     while (1) {
