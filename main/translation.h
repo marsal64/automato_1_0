@@ -64,7 +64,14 @@ static const translation cz_en[] = {{"Vypnuto", "Off"},
                                     {"so", "Sat"},
                                     {"ne", "Sun"},
                                     {"Ceny OTE", "Prices OTE"},
-
+                                    {"Nové heslo uživatele automato:","New password for automato user:"},
+                                    {"Nové heslo uživatele servis:","New password for servis user:"},
+                                    {"Výchozí nastavení (!)","Default settings (!)"},
+                                    {"Pozor, stiskem tlačítka níže změníte všechna nastavení na výchozí","Caution, if you press the button below, all settings will be initiated to default"},
+                                    {"Zmeny potvrďte stiskem tlačítka 'Potvrzení'","Confirm any change pressing the button 'Confirm'"},
+                                    {"Zpět","Back"},
+                                    {"Uživatelská nastavení","User settings"},
+                                   
 
                                     /* sentinel – signals end of table */
                                     {"", ""}};

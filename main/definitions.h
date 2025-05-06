@@ -21,8 +21,11 @@
 #define INIT_PASSWORD_AUTOMATO "0000"
 #define INIT_PASSWORD_ADMIN "1111"
 
+//// definition for setup (actions)
 // define maximum number of conditions
 #define MAXNUMCONDITONS 10
+#define SIZERULES 33
+
 
 // jednoznačné device id:
 #define deviceid "automato"

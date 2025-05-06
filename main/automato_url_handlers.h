@@ -100,7 +100,8 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "     const li=document.createElement('li');\n"
           "const k = p.key;"
           "const fmt = `${k.slice(0,4)}-${k.slice(4,6)}-${k.slice(6,8)}&nbsp;&nbsp;&nbsp;${k.slice(8,10)}`;"
-          "li.innerHTML = (p.key === d.now_key ? '<b>' : '') + fmt + '&nbsp;:&nbsp;&nbsp;&nbsp;' + p.val + (p.key === d.now_key ? "
+          "li.innerHTML = (p.key === d.now_key ? '<b>' : '') + fmt + '&nbsp;:&nbsp;&nbsp;&nbsp;' + p.val + (p.key === "
+          "d.now_key ? "
           "'</b>' : '');"
           "     ulp.appendChild(li);\n"
           "  });\n"
@@ -150,6 +151,9 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "<form action='/setup' method='get' style='margin:0'>"
           "<button type='submit'>");
     chunk(req, t("Akce"));
+    chunk(req, "</button></form>");
+    chunk(req, "<form action='/settings' style='margin-left:8px'><button>");
+    chunk(req, t("Nastavení"));
     chunk(req,
           "</button></form>"
           "</div>");
@@ -672,6 +676,140 @@ esp_err_t setup_post_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+esp_err_t settings_get_handler(httpd_req_t *req) {
+    /* ---------- auth -------------------------------------------------- */
+    char cookie_value[32];
+    if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) || strcmp(cookie_value, "1") != 0 ||
+        current_user_id == -1) {
+        httpd_resp_set_status(req, "307 Temporary Redirect");
+        httpd_resp_set_hdr(req, "Location", "/login");
+        httpd_resp_send(req, NULL, 0);
+        return ESP_OK;
+    }
+
+    httpd_resp_set_type(req, "text/html; charset=UTF-8");
+
+    chunk(req, "<!DOCTYPE html><html><head>)");
+
+    chunk(req,
+          /* ---------- CSS --------------------------------------------- */
+          "<style>"
+          "body{font-family:Helvetica,Arial,sans-serif;margin:0;background:#fafafa}"
+          /* common wrapper */
+          ".wrapper{"
+          "    margin:20px 0 0 20px;"
+          "    max-width:860px;"
+          "    border:1px solid #bbb;"
+          "    padding:0 20px 20px 20px;"
+          "    background:#fff;"
+          "}"
+          "table{width:100%;border-collapse:collapse;margin-top:10px}"
+          "th,td{border:1px solid #ccc;padding:6px;text-align:center}"
+          "th{background:#eee}"
+          "button{padding:4px 10px;margin:2px}"
+          ".wide{width:160px}"
+          /* logo bar */
+          ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
+          ".logo img{height:38px;width:auto}"
+          ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
+          ".headbar{display:flex;justify-content:space-between;align-items:center;height:46px;padding:0 8px;}"
+          "</style>");
+
+    chunk(req, "</head><body>");
+
+    /* ---------- page header with logo (top‑left) ----------------- */
+    chunk(req,
+          "<div class='logo'>"
+          "<img src='/logo' alt='automato'>"
+          "<span>");
+    chunk(req, t("automato"));
+    chunk(req,
+          "</span>"
+          "</div>");
+    chunk(req, "<div class='wrapper'>");
+    // form start
+    chunk(req, "<form action='/settings' method='post'>");
+
+    chunk(req, "<h2 align='center'>");
+    chunk(req, t("Uživatelská nastavení"));
+    chunk(req, "</h2>");
+
+    chunk(req, "<br>");
+    // language selector
+    chunk(req, t("Zmeny potvrďte stiskem tlačítka 'Potvrzení'"));
+    chunk(req,
+          "<br><br><label>Jazyk/language:&nbsp;</label>"
+          "<select name='lang'>"
+          "<option value='0'");
+    if (gst_lang == LANG_CZ) chunk(req, "selected");
+    chunk(req,
+          ">Česky</option>"
+          "<option value='1'");
+    if (gst_lang == LANG_EN) chunk(req, "selected");
+    chunk(req,
+          ">English</option>"
+          "</select><br><br>");
+    // password fields
+    chunk(req, t("Nové heslo uživatele automato:"));
+    chunk(req, "&nbsp;<input type='password' name='user_pass' value=''><br><br>");
+    // servis only if service user
+    if (current_user_id == 1) {
+        chunk(req, t("Nové heslo uživatele servis:"));
+        chunk(req, "&nbsp;<input type='password' name='serv_pass' value=''><br><br>");
+    }
+    // buttons
+    chunk(req, "<button type='submit'>");
+    chunk(req, t("Potvrzení"));
+    chunk(req, "</button>");
+    chunk(req, "<br><br><button onclick=\"window.location.href='/'\" >");
+    chunk(req, t("Zpět"));
+    chunk(req, "</button><br><br><br><br>");
+    chunk(req, t("Pozor, stiskem tlačítka níže změníte všechna nastavení na výchozí"));
+    chunk(req, "<br><button type='submit' name='wipe' value='1'>");
+    chunk(req, t("Výchozí nastavení (!)"));
+    chunk(req, "</button>");
+    chunk(req, "</form></div></body></html>");
+    return httpd_resp_send_chunk(req, NULL, 0);
+}
+
+esp_err_t settings_post_handler(httpd_req_t *req) {
+    // read whole POST body into buf[]
+    // very simple URL-encoded parse:
+    char lang_s[4], userp[33], servp[33], wipe_s[2];
+    char buf[1024] = {0};  // Input buffer for cookie contents parsing
+    sscanf(buf, "lang=%3[^&]&user_pass=%32[^&]&serv_pass=%32[^&]&wipe=%1s", lang_s, userp, servp, wipe_s);
+    int lang = atoi(lang_s);
+
+    if (wipe_s[0] == '1') {
+        // Erase entire NVS partition:
+        nvs_flash_erase();
+        esp_restart();
+        return ESP_OK;
+    }
+
+    // 1) language
+    if (lang >= 0 && lang < LANG_COUNT) {
+        gst_lang = lang;
+        nvs_set_blob(nvs_handle_storage, "gst_lang", &gst_lang, sizeof(gst_lang));
+    }
+    // 2) automato password
+    if (strlen(userp)) {
+        nvs_set_str(nvs_handle_storage, "password_automato", userp);
+        strcpy(users[0].password, userp);
+    }
+    // 3) servis password (only if service is logged in)
+    if (current_user_id == 1 && strlen(servp)) {
+        nvs_set_str(nvs_handle_storage, "password_admin", servp);
+        strcpy(users[1].password, servp);
+    }
+    nvs_commit(nvs_handle_storage);
+
+    // redirect back
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_hdr(req, "Location", "/settings");
+    httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
+}
 
 
 // Function to start the web server
@@ -722,6 +860,15 @@ httpd_handle_t start_webserver(void) {
         httpd_uri_t favicon_uri = {
             .uri = "/favicon.ico", .method = HTTP_GET, .handler = favicon_get_handler, .user_ctx = NULL};
         httpd_register_uri_handler(server, &favicon_uri);
+
+        // after registering settings
+        httpd_uri_t settings_uri_get = {
+            .uri = "/settings", .method = HTTP_GET, .handler = settings_get_handler, .user_ctx = NULL};
+        httpd_register_uri_handler(server, &settings_uri_get);
+
+        httpd_uri_t settings_uri_post = {
+            .uri = "/settings", .method = HTTP_POST, .handler = settings_post_handler, .user_ctx = NULL};
+        httpd_register_uri_handler(server, &settings_uri_post);
     }
     return server;
 }

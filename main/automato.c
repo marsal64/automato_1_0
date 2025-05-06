@@ -230,9 +230,9 @@ typedef struct {
 
 } condition_item;
 condition_item conditions[MAXNUMCONDITONS] = {
-    {1, "OTEPH", ">", "0", "REL1ON"},   {1, "OTEPH", ">", "0", "REL2ON"},     {1, "OTEPH", ">", "0", "REL3ON"},
-    {1, "OTEPH", ">", "0", "REDLEDON"}, {1, "OTEPH", "<=", "0", "REL1OFF"},   {1, "OTEPH", "<=", "0", "REL2OFF"},
-    {1, "OTEPH", "<=", "0", "REL3OFF"}, {1, "OTEPH", "<=", "0", "REDLEDOFF"}, {1, "", "", "", ""}  // end of conditions
+    {0, "OTEPH", ">", "0", "REL1ON"},   {0, "OTEPH", ">", "0", "REL2ON"},     {0, "OTEPH", ">", "0", "REL3ON"},
+    {1, "OTEPH", ">", "0", "REDLEDON"}, {0, "OTEPH", "<=", "0", "REL1OFF"},   {0, "OTEPH", "<=", "0", "REL2OFF"},
+    {0, "OTEPH", "<=", "0", "REL3OFF"}, {1, "OTEPH", "<=", "0", "REDLEDOFF"}, {1, "", "", "", ""}  // end of conditions
 };  // end of conditions list
 
 // action_log
