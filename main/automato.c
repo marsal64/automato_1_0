@@ -1663,12 +1663,10 @@ void app_main(void) {
     // read language from nvs, if not found, set default
     // and write to nvs
     ESP_LOGI(TAG, "Loading language from NVS");
-
-
     size_t sz = sizeof(gst_lang);
-    esp_err_t err = nvs_get_blob(nvs_handle_storage, "gst_lang", &gst_lang, &sz);
+    err = nvs_get_blob(nvs_handle_storage, "gst_lang", &gst_lang, &sz);
     if (err == ESP_OK && sz == sizeof(gst_lang) && gst_lang < LANG_COUNT) {
-        gst_lang = LANG_CZ;  //Default
+        gst_lang = LANG_CZ;  // Default
     } else {
         // first‐boot or invalid → write default
         nvs_set_blob(nvs_handle_storage, "gst_lang", &gst_lang, sizeof(gst_lang));
