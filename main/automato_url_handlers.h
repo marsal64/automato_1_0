@@ -189,7 +189,7 @@ esp_err_t root_get_handler(httpd_req_t *req) {
 
     /* actions column --------------------------------------------------- */
     chunk(req, "<div class='actions'><h3>");
-    chunk(req, t("Aktivované akce"));
+    chunk(req, t("Akce&nbsp;&rarr;&nbsp;naposledy aktivováno"));
     chunk(req, "</h3><ul id='actions-list' style='margin:0;padding-left:1em;'>");
     for (int i = 0; i < NUMLASTACTIONSLOG && last_actions_log[i].action[0]; ++i) {
         char line[512];
@@ -619,6 +619,16 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
  * Responds 204 No Content on success.
  * ------------------------------------------------------------------- */
 esp_err_t setup_post_handler(httpd_req_t *req) {
+    /* ---------- auth -------------------------------------------------- */
+    char cookie_value[32];
+    if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) || strcmp(cookie_value, "1") != 0 ||
+        current_user_id == -1) {
+        httpd_resp_set_status(req, "307 Temporary Redirect");
+        httpd_resp_set_hdr(req, "Location", "/login");
+        httpd_resp_send(req, NULL, 0);
+        return ESP_OK;
+    }
+
     /* ----- read body --------------------------------------------------- */
     char buf[2048];
     int len = httpd_req_recv(req, buf, sizeof(buf) - 1);
@@ -692,6 +702,11 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
     chunk(req, "<!DOCTYPE html><html><head>)");
 
     chunk(req,
+          "<script>"
+          "function logoff(){location.href='/logout';}\n"
+          "</script>");
+
+    chunk(req,
           /* ---------- CSS --------------------------------------------- */
           "<style>"
           "body{font-family:Helvetica,Arial,sans-serif;margin:0;background:#fafafa}"
@@ -734,9 +749,8 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
     chunk(req, t("Uživatelská nastavení"));
     chunk(req, "</h2>");
 
-    chunk(req, "<br>");
     // language selector
-    chunk(req, t("Zmeny potvrďte stiskem tlačítka 'Potvrzení'"));
+    chunk(req, t("Změny potvrďte stiskem tlačítka 'Potvrzení'"));
     chunk(req,
           "<br><br><label>Jazyk/language:&nbsp;</label>"
           "<select name='lang'>"
@@ -749,6 +763,7 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
     chunk(req,
           ">English</option>"
           "</select><br><br>");
+
     // password fields
     chunk(req, t("Nové heslo uživatele automato:"));
     chunk(req, "&nbsp;<input type='password' name='user_pass' value=''><br><br>");
@@ -756,60 +771,135 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
     if (current_user_id == 1) {
         chunk(req, t("Nové heslo uživatele servis:"));
         chunk(req, "&nbsp;<input type='password' name='serv_pass' value=''><br><br>");
+    } else {
+        // hidden
+        chunk(req, "<input type='hidden' name='serv_pass' value=''>");
     }
+
     // buttons
     chunk(req, "<button type='submit'>");
     chunk(req, t("Potvrzení"));
     chunk(req, "</button>");
-    chunk(req, "<br><br><button onclick=\"window.location.href='/'\" >");
+    chunk(req,
+          "<button id='backBtn' type='button'"
+          " onclick=\"window.location.href='/'\""
+          " style='float:right;margin-left:8px;'>");
     chunk(req, t("Zpět"));
-    chunk(req, "</button><br><br><br><br>");
-    chunk(req, t("Pozor, stiskem tlačítka níže změníte všechna nastavení na výchozí"));
-    chunk(req, "<br><button type='submit' name='wipe' value='1'>");
+    chunk(req, "</button>");
+    chunk(req, "<br><br><br><br>");
+    chunk(req, t("Pozor, stiskem tlačítka níže změníte všechna nastavení na výchozí a restartujete zařízení (nutno znovu připojit na wifi)"));
+    chunk(req, "<br>");
+    // Make sure we give it a name and value:
+    chunk(req, "<button type='submit' name='wipe' value='1'>");
     chunk(req, t("Výchozí nastavení (!)"));
     chunk(req, "</button>");
-    chunk(req, "</form></div></body></html>");
+    chunk(req, "</form></div>");
+
+    /* ---------- log‑off button --------------------------------------- */
+    chunk(req, "<button onclick='logoff()' style='margin:20px 0 0 40px;'>");
+    chunk(req, t("Odhlásit"));
+    chunk(req, "</button>");
+
+    chunk(req, "</body></html>");
     return httpd_resp_send_chunk(req, NULL, 0);
 }
 
 esp_err_t settings_post_handler(httpd_req_t *req) {
-    // read whole POST body into buf[]
-    // very simple URL-encoded parse:
-    char lang_s[4], userp[33], servp[33], wipe_s[2];
-    char buf[1024] = {0};  // Input buffer for cookie contents parsing
-    sscanf(buf, "lang=%3[^&]&user_pass=%32[^&]&serv_pass=%32[^&]&wipe=%1s", lang_s, userp, servp, wipe_s);
-    int lang = atoi(lang_s);
+    /* ---------- auth -------------------------------------------------- */
+    char cookie_value[32];
+    if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) || strcmp(cookie_value, "1") != 0 ||
+        current_user_id == -1) {
+        httpd_resp_set_status(req, "307 Temporary Redirect");
+        httpd_resp_set_hdr(req, "Location", "/login");
+        httpd_resp_send(req, NULL, 0);
+        return ESP_OK;
+    }
 
-    if (wipe_s[0] == '1') {
-        // Erase entire NVS partition:
+
+    // Read the form body
+    char buf[256];  // Input buffer for form data
+
+    // 1) Read the body
+    int len = req->content_len;
+    if (len <= 0 || len >= sizeof(buf)) return ESP_FAIL;
+    int r = httpd_req_recv(req, buf, len);
+    if (r <= 0) return ESP_FAIL;
+    buf[r] = '\0';
+
+    // 2) Parse key/value pairs
+    int lang = 0, wipe = 0;
+    char userp[33] = {0}, servp[33] = {0};
+    for (char *p = buf; p; /* */) {
+        char *pair = p;
+        char *amp = strchr(pair, '&');
+        if (amp) *amp = '\0';
+        char *eq = strchr(pair, '=');
+        if (eq) {
+            *eq = '\0';
+            if (!strcmp(pair, "lang"))
+                lang = atoi(eq + 1);
+            else if (!strcmp(pair, "user_pass"))
+                strncpy(userp, eq + 1, sizeof(userp) - 1);
+            else if (!strcmp(pair, "serv_pass"))
+                strncpy(servp, eq + 1, sizeof(servp) - 1);
+            else if (!strcmp(pair, "wipe"))
+                wipe = atoi(eq + 1);
+        }
+        p = amp ? amp + 1 : NULL;
+    }
+
+    // 3) If they hit the wipe-factory-defaults button, do that *first*
+    if (wipe) {
+        httpd_resp_set_type(req, "text/html; charset=UTF-8");
+        httpd_resp_send(req, t("<html><body>Výchozí nastavení, restartuji zařízení (po restartu připojte na WiFi)</body></html>"),
+                        HTTPD_RESP_USE_STRLEN);
+        vTaskDelay(pdMS_TO_TICKS(100));
         nvs_flash_erase();
         esp_restart();
         return ESP_OK;
     }
 
-    // 1) language
-    if (lang >= 0 && lang < LANG_COUNT) {
-        gst_lang = lang;
-        nvs_set_blob(nvs_handle_storage, "gst_lang", &gst_lang, sizeof(gst_lang));
+    // 4) Otherwise apply language & password changes
+    gst_lang = lang;
+    nvs_set_blob(nvs_handle_storage, "gst_lang", &gst_lang, sizeof(gst_lang));
+    int err = nvs_commit(nvs_handle_storage);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "nvs_commit failed for gst_lang (%d)", err);
+    } else {
+        ESP_LOGI(TAG, "Saved new gst_lang to NVS");
     }
-    // 2) automato password
-    if (strlen(userp)) {
-        nvs_set_str(nvs_handle_storage, "password_automato", userp);
-        strcpy(users[0].password, userp);
-    }
-    // 3) servis password (only if service is logged in)
-    if (current_user_id == 1 && strlen(servp)) {
-        nvs_set_str(nvs_handle_storage, "password_admin", servp);
-        strcpy(users[1].password, servp);
-    }
-    nvs_commit(nvs_handle_storage);
 
-    // redirect back
+    if (userp[0]) {
+        strncpy(users[0].password, userp, sizeof(users[0].password) - 1);
+        users[0].password[sizeof(users[0].password) - 1] = '\0';
+        nvs_set_str(nvs_handle_storage, "pwd_automato", userp);
+        int err = nvs_commit(nvs_handle_storage);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "nvs_commit failed for pwd_automato (%d)", err);
+        } else {
+            ESP_LOGI(TAG, "Saved new automato password to NVS");
+        }
+    }
+    if (servp[0]) {
+        strncpy(users[1].password, servp, sizeof(users[1].password) - 1);
+        users[1].password[sizeof(users[1].password) - 1] = '\0';
+        nvs_set_str(nvs_handle_storage, "pwd_servis", servp);
+        int err = nvs_commit(nvs_handle_storage);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "nvs_commit failed for pwd_servis (%d)", err);
+        } else {
+            ESP_LOGI(TAG, "Saved new servis password to NVS");
+        }
+        
+    }
+
+    // 5) Redirect back
     httpd_resp_set_status(req, "302 Found");
     httpd_resp_set_hdr(req, "Location", "/settings");
     httpd_resp_send(req, NULL, 0);
     return ESP_OK;
 }
+
 
 
 // Function to start the web server
@@ -852,9 +942,6 @@ httpd_handle_t start_webserver(void) {
         httpd_uri_t image_uri = {
             .uri = "/logo", .method = HTTP_GET, .handler = logo_image_get_handler, .user_ctx = NULL};
         httpd_register_uri_handler(server, &image_uri);
-
-        httpd_uri_t setup_uri = {.uri = "/setup", .method = HTTP_GET, .handler = setup_get_handler, .user_ctx = NULL};
-        httpd_register_uri_handler(server, &setup_uri);
 
         // favicon handler
         httpd_uri_t favicon_uri = {

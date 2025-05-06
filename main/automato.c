@@ -204,7 +204,7 @@ typedef struct {
 } user_credentials_t;
 
 // credential definitions
-static user_credentials_t users[] = {{"automato", INIT_PASSWORD_AUTOMATO}, {"admin", INIT_PASSWORD_ADMIN}};
+static user_credentials_t users[] = {{"automato", INIT_PASSWORD_AUTOMATO}, {"servis", INIT_PASSWORD_SERVIS}};
 
 // current user
 // -1 - undefined
@@ -1111,7 +1111,6 @@ static time_t ymdh_to_time(const char* s) {
 // Task to grab & log the OTE data every minute
 static void ote_read(void* pv) {
     const char* URL = "https://www.ote-cr.cz/cs/kratkodobe-trhy/elektrina/denni-trh";
-    const TickType_t PERIOD = pdMS_TO_TICKS(MINUTES_TO_GRAB_OTE * 60 * 1000);
 
     char* chunk = heap_caps_malloc(CHUNK, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     if (!chunk) {
@@ -1315,7 +1314,7 @@ static void ote_read(void* pv) {
             }
         }
 
-        vTaskDelay(PERIOD);
+        vTaskDelay(PERIOD_OTE_READ_MS / portTICK_PERIOD_MS);
     }
 }
 
@@ -1498,33 +1497,35 @@ void app_main(void) {
     ESP_ERROR_CHECK(nvs_open("storage", NVS_READWRITE, &nvs_handle_storage));
 
     // po reset vymaž existující hesla
+    ESP_LOGW(TAG, "button_reprovisioning: %d", button_reprovisioning);
     if (button_reprovisioning) {
-        ESP_LOGI(TAG, "Erasing standard passwords for automato a admin");
-        nvs_erase_key(nvs_handle_storage, "password_automato");
-        nvs_erase_key(nvs_handle_storage, "password_admin");
+        ESP_LOGI(TAG, "Erasing standard passwords for automato and servis");
+        nvs_erase_key(nvs_handle_storage, "pwd_automato");
+        nvs_erase_key(nvs_handle_storage, "pwd_servis");
     }
 
     // načti aplikační hesla z nvs
-    char read_nvs_value[128];
+    char read_nvs_value[32];
     size_t required_size = sizeof(read_nvs_value);
     //
-    int err = nvs_get_str(nvs_handle_storage, "password_automato", read_nvs_value, &required_size);
+    int err = nvs_get_str(nvs_handle_storage, "pwd_automato", read_nvs_value, &required_size);
     if (err == ESP_OK) {
         strcpy(users[0].password, read_nvs_value);
-        ESP_LOGI(TAG, "Password for automato user read from nvs");
+        ESP_LOGW(TAG, "Password for automato user read from nvs");
         // ESP_LOGI(TAG, "Password for automato user read from nvs, %s", users[0].password);
-
     } else {
-        ESP_LOGI(TAG, "Standard password for the user automato loaded");
+        ESP_LOGW(TAG, "nvs_get_str  for password automato returned %d, size %u", err, (unsigned)required_size);
+        ESP_LOGW(TAG, "Standard password for the user automato loaded");
     }
     //
-    err = nvs_get_str(nvs_handle_storage, "password_admin", read_nvs_value, &required_size);
+    err = nvs_get_str(nvs_handle_storage, "pwd_servis", read_nvs_value, &required_size);
     if (err == ESP_OK) {
         strcpy(users[1].password, read_nvs_value);
-        ESP_LOGI(TAG, "Password for the automato user read from nvs");
+        ESP_LOGW(TAG, "Password for the servis user read from nvs");
         // ESP_LOGI(TAG, "Heslo pro servis nacteno: %s", users[1].password);
     } else {
-        ESP_LOGI(TAG, "Standard password for the user admin loaded");
+        ESP_LOGW(TAG, "nvs_get_str for password servis returned %d, size %u", err, (unsigned)required_size);
+        ESP_LOGW(TAG, "Standard password for the user servis loaded");
     }
 
     // výrobní číslo: pokud existuje, načti z nvs, jinak standardní
@@ -1538,6 +1539,7 @@ void app_main(void) {
         // zapis standardního výrobního čísla do nvs
         err = nvs_set_str(nvs_handle_storage, "production_num", vyrobnicislo);
         if (err == ESP_OK) {
+            nvs_commit(nvs_handle_storage);
         } else {
             ESP_LOGE(TAG, "Error writing the standard production number to nvs");
         }

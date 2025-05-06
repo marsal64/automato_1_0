@@ -18,8 +18,11 @@
  #define NUMLASTACTIONSLOG 20
  
 // default passwords
-#define INIT_PASSWORD_AUTOMATO "0000"
-#define INIT_PASSWORD_ADMIN "1111"
+#define INIT_PASSWORD_AUTOMATO "000000"
+#define INIT_PASSWORD_SERVIS "111111"
+
+//// period to read from OTE in miliseconds
+#define PERIOD_OTE_READ_MS  (1000 * 60 * 5)
 
 //// definition for setup (actions)
 // define maximum number of conditions
@@ -56,7 +59,7 @@
 #define RELAY3 GPIO_NUM_7
 
 //// ote_read related definitions
-// chunk to read
+// chunk to read from OTE
 #define CHUNK 4096
 // tail to keep and merge with next chunk
 #define TAIL 512
@@ -64,7 +67,7 @@
 #define MINUTES_TO_GRAB_OTE 1
 
 // How long should be pressed the Reset button (ms) to reset initiation
-#define WIFI_BUTTON_PUSHMS_TO_INIT 3000
+#define WIFI_BUTTON_PUSHMS_TO_INIT 5000
 
 // Test signal active when uart error
 #define TEST_UART_GPIO GPIO_NUM_36
@@ -104,8 +107,8 @@
 #define MAXLEN_VALUE 20
 
 // for language tranlsations
-#define MAX_TRANS_STRING_CZ_LEN 100
-#define MAX_TRANS_STRING_EN_LEN 90
+#define MAX_TRANS_STRING_CZ_LEN 200
+#define MAX_TRANS_STRING_EN_LEN 180
 
 
 #define QUEUE_TX_LENGTH 10

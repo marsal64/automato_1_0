@@ -67,10 +67,12 @@ static const translation cz_en[] = {{"Vypnuto", "Off"},
                                     {"Nové heslo uživatele automato:","New password for automato user:"},
                                     {"Nové heslo uživatele servis:","New password for servis user:"},
                                     {"Výchozí nastavení (!)","Default settings (!)"},
-                                    {"Pozor, stiskem tlačítka níže změníte všechna nastavení na výchozí","Caution, if you press the button below, all settings will be initiated to default"},
-                                    {"Zmeny potvrďte stiskem tlačítka 'Potvrzení'","Confirm any change pressing the button 'Confirm'"},
+                                    {"Pozor, stiskem tlačítka níže změníte všechna nastavení na výchozí a restartujete zařízení (nutno znovu připojit na wifi)","Caution, if you press the button below, all settings will be initiated to default and the device will be restarted. WiFi provisioning needed again."},
+                                    {"Změny potvrďte stiskem tlačítka 'Potvrzení'","Confirm any change pressing the button 'Confirm'"},
                                     {"Zpět","Back"},
                                     {"Uživatelská nastavení","User settings"},
+                                    {"Akce&nbsp;&rarr;&nbsp;naposledy aktivováno","Action&nbsp;&rarr;&nbsp;last activation timestamp"},
+                                    {"<html><body>Výchozí nastavení, restartuji zařízení (po restartu připojte na WiFi)</body></html>","<html><body>Default settings, restarting the device (after restart, do WiFi provisioning)</body></html>"},
                                    
 
                                     /* sentinel – signals end of table */
