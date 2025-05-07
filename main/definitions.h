@@ -22,7 +22,7 @@
 #define INIT_PASSWORD_SERVIS "111111"
 
 //// period to read from OTE in miliseconds
-#define PERIOD_OTE_READ_MS  (1000 * 60 * 5)
+#define PERIOD_OTE_READ_MS  (1000 * 60 * 30)
 
 //// definition for setup (actions)
 // define maximum number of conditions
