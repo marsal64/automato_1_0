@@ -204,7 +204,8 @@ typedef struct {
 } user_credentials_t;
 
 // credential definitions
-static user_credentials_t users[] = {{"automato", INIT_PASSWORD_AUTOMATO}, {"servis", INIT_PASSWORD_SERVIS}};
+static user_credentials_t users[] = {{"automato", INIT_PASSWORD_AUTOMATO},
+                                     {"servis", INIT_PASSWORD_SERVIS}};
 
 // current user
 // -1 - undefined
@@ -230,9 +231,15 @@ typedef struct {
 
 } condition_item;
 condition_item conditions[MAXNUMCONDITONS] = {
-    {0, "OTEPH", ">", "0", "REL1ON"},   {0, "OTEPH", ">", "0", "REL2ON"},     {0, "OTEPH", ">", "0", "REL3ON"},
-    {1, "OTEPH", ">", "0", "REDLEDON"}, {0, "OTEPH", "<=", "0", "REL1OFF"},   {0, "OTEPH", "<=", "0", "REL2OFF"},
-    {0, "OTEPH", "<=", "0", "REL3OFF"}, {1, "OTEPH", "<=", "0", "REDLEDOFF"}, {1, "", "", "", ""}  // end of conditions
+    {1, "OTEPH", ">", "0", "REL1ON"},
+    {1, "OTEPH", ">", "0", "REL2ON"},
+    {1, "OTEPH", ">", "0", "REL3ON"},
+    {1, "OTEPH", ">", "0", "REDLEDON"},
+    {1, "OTEPH", "<=", "0", "REL1OFF"},
+    {1, "OTEPH", "<=", "0", "REL2OFF"},
+    {1, "OTEPH", "<=", "0", "REL3OFF"},
+    {1, "OTEPH", "<=", "0", "REDLEDOFF"},
+    {1, "", "", "", ""}  // end of conditions
 };  // end of conditions list
 
 // action_log
@@ -242,7 +249,6 @@ typedef struct {
 } action_log_item;
 
 action_log_item last_actions_log[NUMLASTACTIONSLOG];
-
 
 // logging tag
 static const char* TAG = "automato";
@@ -274,8 +280,6 @@ void utf8_to_ascii(const char* utf8_str, char* ascii_str, size_t ascii_len) {
     ascii_str[j] = '\0';
 }
 
-
-
 static esp_err_t load_or_init_conditions(void) {
     esp_err_t err;
     size_t sz = sizeof(conditions); /* how many bytes we expect */
@@ -295,7 +299,8 @@ static esp_err_t load_or_init_conditions(void) {
              err);
 
     /* write the compile‑time defaults you have in `conditions[]`       */
-    err = nvs_set_blob(nvs_handle_storage, "conditions", conditions, sizeof(conditions));
+    err = nvs_set_blob(nvs_handle_storage, "conditions", conditions,
+                       sizeof(conditions));
     if (err == ESP_OK) err = nvs_commit(nvs_handle_storage);
 
     if (err == ESP_OK)
@@ -305,7 +310,6 @@ static esp_err_t load_or_init_conditions(void) {
 
     return err;
 }
-
 
 /**
  * day_of_week:
@@ -324,9 +328,16 @@ int day_of_week(int year, int month, int day) {
         year--;
     }
     // Sakamoto’s formula produces: 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-    int w = (year + year / 4 - year / 100 + year / 400 + t[month - 1] + day) % 7;
+    int w =
+        (year + year / 4 - year / 100 + year / 400 + t[month - 1] + day) % 7;
     // shift to achieve Sunday = 1
     return w + 1;
+}
+
+static void wifi_init_sta(void) {
+    /* Start Wi-Fi in station mode */
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(esp_wifi_start());
 }
 
 /**
@@ -341,9 +352,11 @@ uint8_t crc_calc(uint8_t* src, int len) {
 }
 
 // Utility function to parse cookies
-bool get_cookie(httpd_req_t* req, const char* cookie_name, char* cookie_value, size_t max_len) {
+bool get_cookie(httpd_req_t* req, const char* cookie_name, char* cookie_value,
+                size_t max_len) {
     char buf[256];  // Cookie length
-    if (httpd_req_get_hdr_value_str(req, "Cookie", buf, sizeof(buf)) == ESP_OK) {
+    if (httpd_req_get_hdr_value_str(req, "Cookie", buf, sizeof(buf)) ==
+        ESP_OK) {
         const char* start = strstr(buf, cookie_name);
         if (start) {
             const char* end = strstr(start, ";");
@@ -360,7 +373,8 @@ bool get_cookie(httpd_req_t* req, const char* cookie_name, char* cookie_value, s
 }
 
 /* Event handler for catching system events */
-static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
+static void event_handler(void* arg, esp_event_base_t event_base,
+                          int32_t event_id, void* event_data) {
     static int retries;
 
     if (event_base == WIFI_PROV_EVENT) {
@@ -370,21 +384,25 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
                 led2_status = LED2_STATUS_WIFI_REPROVISIONING;
                 break;
             case WIFI_PROV_CRED_RECV: {
-                wifi_sta_config_t* wifi_sta_cfg = (wifi_sta_config_t*)event_data;
+                wifi_sta_config_t* wifi_sta_cfg =
+                    (wifi_sta_config_t*)event_data;
 
                 ESP_LOGI(TAG,
                          "Received Wi-Fi credentials"
                          "\n\tSSID     : %s\n\tPassword : %s",
-                         (const char*)wifi_sta_cfg->ssid, (const char*)wifi_sta_cfg->password);
+                         (const char*)wifi_sta_cfg->ssid,
+                         (const char*)wifi_sta_cfg->password);
                 break;
             }
             case WIFI_PROV_CRED_FAIL: {
-                wifi_prov_sta_fail_reason_t* reason = (wifi_prov_sta_fail_reason_t*)event_data;
+                wifi_prov_sta_fail_reason_t* reason =
+                    (wifi_prov_sta_fail_reason_t*)event_data;
                 ESP_LOGE(TAG,
                          "Provisioning failed!\n\tReason : %s"
                          "\n\tPlease reset to factory and retry provisioning",
-                         (*reason == WIFI_PROV_STA_AUTH_ERROR) ? "Wi-Fi station authentication failed"
-                                                               : "Wi-Fi access-point not found");
+                         (*reason == WIFI_PROV_STA_AUTH_ERROR)
+                             ? "Wi-Fi station authentication failed"
+                             : "Wi-Fi access-point not found");
 
                 led2_status = LED2_STATUS_NO_WIFI;
 
@@ -411,8 +429,20 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
 
                 break;
             case WIFI_PROV_END:
-                /* De-initialize manager once provisioning is finished */
+                ESP_LOGI(TAG, "Provisioning done – rebooting to normal mode");
+
+                /* 1. De-initialise the manager (closes BLE, frees heap) */
                 wifi_prov_mgr_deinit();
+
+                /* 2. Make sure any pending NVS writes are flushed       */
+                nvs_commit(nvs_handle_storage);
+
+                /* 3. Give UART time to flush log lines (optional)       */
+                vTaskDelay(pdMS_TO_TICKS(200));
+
+                /* 4. Reboot                                            */
+                esp_restart();
+
                 break;
             default:
                 break;
@@ -429,7 +459,8 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
                 led2_status = LED2_STATUS_CONNECTING_WIFI;
 
                 if (wifi_retry_count < WIFI_RETRY_MAX_ATTEMPTS) {
-                    ESP_LOGI(TAG, "Disconnected. Retrying to connect to the AP...");
+                    ESP_LOGI(TAG,
+                             "Disconnected. Retrying to connect to the AP...");
                     esp_wifi_connect();
                     wifi_retry_count++;
                     vTaskDelay(WIFI_RETRY_DELAY_MS / portTICK_PERIOD_MS);
@@ -447,11 +478,13 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         wifi_retry_count = 0;  // Reset retry count upon successful connection
         ip_event_got_ip_t* event = (ip_event_got_ip_t*)event_data;
-        ESP_LOGI(TAG, "Connected with IP Address:" IPSTR, IP2STR(&event->ip_info.ip));
+        ESP_LOGI(TAG, "Connected with IP Address:" IPSTR,
+                 IP2STR(&event->ip_info.ip));
 
         // Convert binary IP address to string and put to ipaddress static
         // variable
-        snprintf(ipaddress, sizeof(ipaddress), IPSTR, IP2STR(&event->ip_info.ip));
+        snprintf(ipaddress, sizeof(ipaddress), IPSTR,
+                 IP2STR(&event->ip_info.ip));
 
         /* Signal main application to continue execution */
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_EVENT);
@@ -475,14 +508,16 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
                 ESP_LOGI(TAG, "Secured session established!");
                 break;
             case PROTOCOMM_SECURITY_SESSION_INVALID_SECURITY_PARAMS:
-                ESP_LOGE(TAG,
-                         "Received invalid security parameters for establishing "
-                         "secure session!");
+                ESP_LOGE(
+                    TAG,
+                    "Received invalid security parameters for establishing "
+                    "secure session!");
                 break;
             case PROTOCOMM_SECURITY_SESSION_CREDENTIALS_MISMATCH:
-                ESP_LOGE(TAG,
-                         "Received incorrect username and/or PoP for establishing "
-                         "secure session!");
+                ESP_LOGE(
+                    TAG,
+                    "Received incorrect username and/or PoP for establishing "
+                    "secure session!");
                 break;
             default:
                 break;
@@ -490,17 +525,12 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
     }
 }
 
-static void wifi_init_sta(void) {
-    /* Start Wi-Fi in station mode */
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_start());
-}
-
 static void get_device_service_name(char* service_name, size_t max) {
     uint8_t eth_mac[6];
     const char* ssid_prefix = SSID_PREF;
     esp_wifi_get_mac(WIFI_IF_STA, eth_mac);
-    snprintf(service_name, max, "%s%02X%02X%02X", ssid_prefix, eth_mac[3], eth_mac[4], eth_mac[5]);
+    snprintf(service_name, max, "%s%02X%02X%02X", ssid_prefix, eth_mac[3],
+             eth_mac[4], eth_mac[5]);
 }
 
 /**
@@ -508,10 +538,14 @@ static void get_device_service_name(char* service_name, size_t max) {
  */
 void wifi_led_1(void*) {
     while (1) {
-        gpio_set_level(STATUS_LED_GPIO_GREEN, led1_blink_states[led1_status].onoff_green_1);
-        vTaskDelay(led1_blink_states[led1_status].interval_ms_1 / portTICK_PERIOD_MS);
-        gpio_set_level(STATUS_LED_GPIO_GREEN, led1_blink_states[led1_status].onoff_green_2);
-        vTaskDelay(led1_blink_states[led1_status].interval_ms_2 / portTICK_PERIOD_MS);
+        gpio_set_level(STATUS_LED_GPIO_GREEN,
+                       led1_blink_states[led1_status].onoff_green_1);
+        vTaskDelay(led1_blink_states[led1_status].interval_ms_1 /
+                   portTICK_PERIOD_MS);
+        gpio_set_level(STATUS_LED_GPIO_GREEN,
+                       led1_blink_states[led1_status].onoff_green_2);
+        vTaskDelay(led1_blink_states[led1_status].interval_ms_2 /
+                   portTICK_PERIOD_MS);
     }
 }
 
@@ -520,10 +554,14 @@ void wifi_led_1(void*) {
  */
 void wifi_led_2(void*) {
     while (1) {
-        gpio_set_level(STATUS_LED_GPIO_YELLOW, led2_blink_states[led2_status].onoff_1);
-        vTaskDelay(led2_blink_states[led2_status].interval_ms_1 / portTICK_PERIOD_MS);
-        gpio_set_level(STATUS_LED_GPIO_YELLOW, led2_blink_states[led2_status].onoff_2);
-        vTaskDelay(led2_blink_states[led2_status].interval_ms_2 / portTICK_PERIOD_MS);
+        gpio_set_level(STATUS_LED_GPIO_YELLOW,
+                       led2_blink_states[led2_status].onoff_1);
+        vTaskDelay(led2_blink_states[led2_status].interval_ms_1 /
+                   portTICK_PERIOD_MS);
+        gpio_set_level(STATUS_LED_GPIO_YELLOW,
+                       led2_blink_states[led2_status].onoff_2);
+        vTaskDelay(led2_blink_states[led2_status].interval_ms_2 /
+                   portTICK_PERIOD_MS);
     }
 }
 
@@ -548,7 +586,6 @@ int r_parse_status() {
 
     return 0;  // OK response
 }
-
 
 /* ------------------------------------------------------------------
  *  Action‑log helper
@@ -576,54 +613,115 @@ static void log_action(const char* action)
     /* 3. update or create ------------------------------------------- */
     int idx = (hit_idx != -1) ? hit_idx : free_idx;
     if (idx != -1) { /* have room */
-        strncpy(last_actions_log[idx].action, action, sizeof(last_actions_log[idx].action) - 1);
-        last_actions_log[idx].action[sizeof(last_actions_log[idx].action) - 1] = '\0';
+        strncpy(last_actions_log[idx].action, action,
+                sizeof(last_actions_log[idx].action) - 1);
+        last_actions_log[idx].action[sizeof(last_actions_log[idx].action) - 1] =
+            '\0';
 
-        strncpy(last_actions_log[idx].timestamp, ts, sizeof(last_actions_log[idx].timestamp) - 1);
-        last_actions_log[idx].timestamp[sizeof(last_actions_log[idx].timestamp) - 1] = '\0';
+        strncpy(last_actions_log[idx].timestamp, ts,
+                sizeof(last_actions_log[idx].timestamp) - 1);
+        last_actions_log[idx]
+            .timestamp[sizeof(last_actions_log[idx].timestamp) - 1] = '\0';
     }
     /* else: table full and action new – nothing is logged (or replace
        the oldest/last entry here if you prefer)                       */
 
     /* 4. simple alphabetic sort (bubble ≤10 items is fine) ----------- */
+    /* 4. two-key sort:  newest timestamp first, then action A->Z -------- */
     for (int i = 0; i < NUMLASTACTIONSLOG - 1; ++i)
         for (int j = i + 1; j < NUMLASTACTIONSLOG; ++j)
-            if (last_actions_log[i].action[0] && last_actions_log[j].action[0] &&
-                strcmp(last_actions_log[i].action, last_actions_log[j].action) > 0) {
-                action_log_item tmp = last_actions_log[i];
-                last_actions_log[i] = last_actions_log[j];
-                last_actions_log[j] = tmp;
+            if (last_actions_log[i].action[0] &&
+                last_actions_log[j].action[0]) {
+                int dt =
+                    strcmp(last_actions_log[j].timestamp,
+                           last_actions_log[i].timestamp); /* >0 ⇒ j newer */
+
+                if (dt > 0 || /* j is newer   */
+                    (dt == 0 && strcmp(last_actions_log[j].action,
+                                       last_actions_log[i].action) <
+                                    0)) { /* same time → A-Z */
+
+                    action_log_item tmp = last_actions_log[i];
+                    last_actions_log[i] = last_actions_log[j];
+                    last_actions_log[j] = tmp;
+                }
             }
 }
 
-void obtain_time(void*) {
+/**
+ *  obtain_time()  ── SNTP + offline fallback
+ *
+ *  – Tries SNTP first (as before).
+ *  – When SNTP succeeds it
+ *        • stores the epoch in RAM + in NVS (“rtc_epoch”)
+ *        • remembers the uptime (esp_timer)
+ *        • sets nntptime_status = 1   ← “internet-accurate”
+ *  – If SNTP is still down:
+ *        • derives the current epoch from the stored base-time +
+ *          the elapsed uptime
+ *        • sets nntptime_status = 2   ← “offline-running”
+ *        • (value 0 still means “invalid / not initialised”)
+ *
+ *  Accuracy: ±(crystal drift).  For ESP-IDF default RC-fast clock this is
+ *  ≈ ±40 ppm → < 3½ s / day, usually better with an external crystal.
+ */
+
+static time_t rtc_epoch = 0;       // last good epoch (UTC seconds)
+static int64_t rtc_uptime_us = 0;  // esp_timer at that moment
+static const char* NVS_RTC_KEY = "rtc_epoch";
+
+static void obtain_time(void* pv) {
+    /* --- first boot: restore last known epoch from NVS --------------- */
+    if (rtc_epoch == 0) {
+        nvs_get_i64(nvs_handle_storage, NVS_RTC_KEY,
+                    &rtc_epoch);  // ignore error
+        if (rtc_epoch) {
+            struct timeval tv = {.tv_sec = rtc_epoch, .tv_usec = 0};
+            settimeofday(&tv, NULL);  // seed the kernel clock
+            rtc_uptime_us = esp_timer_get_time();
+            nntptime_status = 2;  // “offline-running”
+            ESP_LOGW(TAG, "RTC fallback: time restored from NVS (%lld)",
+                     rtc_epoch);
+        }
+    }
+
+    /* --- main loop --------------------------------------------------- */
     while (1) {
-        // Wait for time to be set
-        int retry = 0;
-        const int retry_count = 10;
-        time(&now_sntp);
+        /* 1. Did SNTP give us a fresh stamp? -------------------------- */
+        if (sntp_get_sync_status() == SNTP_SYNC_STATUS_COMPLETED) {
+            time(&now_sntp);  // kernel clock is already set by SNTP
+            rtc_epoch = now_sntp;
+            rtc_uptime_us = esp_timer_get_time();
+
+            /* persist for the next reboot */
+            nvs_set_i64(nvs_handle_storage, NVS_RTC_KEY, rtc_epoch);
+            nvs_commit(nvs_handle_storage);
+
+            nntptime_status = 1;  // internet-accurate
+            ESP_LOGI(TAG, "SNTP sync OK → %lld", rtc_epoch);
+        }
+        /* 2. No internet – derive time from uptime -------------------- */
+        else if (rtc_epoch) {
+            int64_t diff_us = esp_timer_get_time() - rtc_uptime_us;
+            now_sntp = rtc_epoch + (time_t)(diff_us / 1000000LL);
+            nntptime_status = 2;  // offline-running
+        }
+        /* 3. Still nothing – leave nntptime_status = 0 ---------------- */
+        else {
+            now_sntp = 0;  // stays 1970-01-01
+        }
+
+        /* convert to struct tm for the rest of the program */
         localtime_r(&now_sntp, &timeinfo_sntp);
-        while (timeinfo_sntp.tm_year < (2023 - 1900) && ++retry < retry_count) {
-            ESP_LOGI(TAG, "Attempting to set the datetime from internet nntp (%d/%d)", retry, retry_count);
-            vTaskDelay(2000 / portTICK_PERIOD_MS);
-            time(&now_sntp);
-            localtime_r(&now_sntp, &timeinfo_sntp);
-        }
 
-        // Parse date and time
-        if (timeinfo_sntp.tm_year > (2023 - 1900)) {
-            snprintf(sntp_string, sizeof(sntp_string), "%d.%d.%d %02d:%02d:%02d", timeinfo_sntp.tm_mday,
-                     timeinfo_sntp.tm_mon + 1, timeinfo_sntp.tm_year + 1900, timeinfo_sntp.tm_hour,
-                     timeinfo_sntp.tm_min, timeinfo_sntp.tm_sec);
-            // ESP_LOGW(TAG, "Datum/cas z internetu: %s", sntp_string);
-            nntptime_status = 1;  // OK
-        } else {
-            ESP_LOGI(TAG, "Datetime from internet nntp not valid");
-            nntptime_status = 0;  // not OK
-        }
+        /* ASCII version for logging / web */
+        strftime(sntp_string, sizeof(sntp_string), "%Y-%m-%d %H:%M:%S",
+                 &timeinfo_sntp);
 
-        // wait to the next poll
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        /* debug: show the mode we’re in */
+        ESP_LOGD(TAG, "time: %s  (status %d)", sntp_string, nntptime_status);
+
+        vTaskDelay(pdMS_TO_TICKS(1000));  // 1 s tick
     }
 }
 
@@ -652,7 +750,8 @@ static void uart_event_task(void* pvParameters) {
 
     for (;;) {
         // Waiting for UART event.
-        if (xQueueReceive(uart0_queue, (void*)&event, (TickType_t)portMAX_DELAY)) {
+        if (xQueueReceive(uart0_queue, (void*)&event,
+                          (TickType_t)portMAX_DELAY)) {
             bzero(dtmp, RD_BUF_SIZE);
             // ESP_LOGI(TAG, "uart[%d] event:", RS485_UART_PORT);
 
@@ -751,7 +850,8 @@ void receive_task(void* pvParameters) {
 
     while (1) {
         // wait for RX data (with timeout TIMEOUT_NO_COMMUNICATION_MS)
-        int rec_q = xQueueReceive(rx_queue, &qi, TIMEOUT_NO_COMMUNICATION_MS / portTICK_PERIOD_MS);
+        int rec_q = xQueueReceive(
+            rx_queue, &qi, TIMEOUT_NO_COMMUNICATION_MS / portTICK_PERIOD_MS);
 
         // timeout?
         if (!rec_q) {
@@ -771,7 +871,9 @@ void receive_task(void* pvParameters) {
 
         // something other than data?
         if (qi.code != UART_DATA) {
-            ESP_LOGE(TAG, "Non standard event during messages receive, code: %d", qi.code);
+            ESP_LOGE(TAG,
+                     "Non standard event during messages receive, code: %d",
+                     qi.code);
             hexlogger((uint8_t*)qi.message, qi.length);
             comm_status = COMST_ERR;
 
@@ -863,9 +965,9 @@ static void do_action(char* action) {
     }
 }
 
-
 /* helper: replace all occurrences of TOKEN in FIELD with REPL --- */
-static void substitute_token(char* field, size_t field_sz, const char* token, const char* repl) {
+static void substitute_token(char* field, size_t field_sz, const char* token,
+                             const char* repl) {
     char tmp[255]; /* same size as field   */
     char* dst = tmp;
     const char* src = field;
@@ -888,7 +990,8 @@ static void substitute_token(char* field, size_t field_sz, const char* token, co
 
         /* copy replacement text */
         size_t copy = repl_len;
-        if (copy > field_sz - 1 - (dst - tmp)) copy = field_sz - 1 - (dst - tmp);
+        if (copy > field_sz - 1 - (dst - tmp))
+            copy = field_sz - 1 - (dst - tmp);
         memcpy(dst, repl, copy);
         dst += copy;
 
@@ -900,7 +1003,6 @@ static void substitute_token(char* field, size_t field_sz, const char* token, co
     strncpy(field, tmp, field_sz - 1);
     field[field_sz - 1] = '\0';
 }
-
 
 static const char* g_cur; /* global cursor into the string */
 
@@ -977,7 +1079,8 @@ double eval_expr(const char* s, int* ok) {
     double v = parse_expr_internal();
     skip_ws();
     if (*g_cur != '\0') { /* garbage at end */
-        fprintf(stderr, "eval: unexpected char '%c' near '%s'\n", *g_cur, g_cur);
+        fprintf(stderr, "eval: unexpected char '%c' near '%s'\n", *g_cur,
+                g_cur);
         if (ok) *ok = 0;
     } else if (ok)
         *ok = 1;
@@ -994,7 +1097,7 @@ static void evaluate_do(void* pv) {
         */
 
         // find current rrrrmmddhh
-        if (nntptime_status == 1) {
+        if (nntptime_status == 1 || nntptime_status == 2) {
             snprintf(r_rrrrmmddhh, sizeof(r_rrrrmmddhh), "%d%02d%02d%02d",
                      timeinfo_sntp.tm_year + 1900,  // RRRR
                      timeinfo_sntp.tm_mon + 1,      // MM
@@ -1004,7 +1107,8 @@ static void evaluate_do(void* pv) {
             ESP_LOGI(TAG, "Current r_rrrrmmhh for evaluation:%s", r_rrrrmmddhh);
 
         } else {
-            ESP_LOGW(TAG, "NTP time not set because of not valid nntptime_status");
+            ESP_LOGW(TAG,
+                     "NTP time not set because of not valid nntptime_status");
         }
 
         //// find current price from nvs
@@ -1013,14 +1117,16 @@ static void evaluate_do(void* pv) {
 
         /* Build key "o_yyyymmddhh" from the already‑computed timestamp */
         char key[120];
-        snprintf(key, sizeof(key), "o_%s", r_rrrrmmddhh); /* e.g. o_2025050516 */
+        snprintf(key, sizeof(key), "o_%s",
+                 r_rrrrmmddhh); /* e.g. o_2025050516 */
 
         /* Try to fetch the price string */
         size_t sz = sizeof(current_ote_price_str);
-        esp_err_t err = nvs_get_str(nvs_handle_storage, key, current_ote_price_str, &sz);
+        esp_err_t err =
+            nvs_get_str(nvs_handle_storage, key, current_ote_price_str, &sz);
 
         // change price only if valid time
-        if (err == ESP_OK && nntptime_status == 1) {
+        if (err == ESP_OK && (nntptime_status == 1 || nntptime_status == 2)) {
             // load price to float
             current_ote_price = atof(current_ote_price_str);
             ESP_LOGI(TAG, "Current price found in NVS:  %f", current_ote_price);
@@ -1028,28 +1134,33 @@ static void evaluate_do(void* pv) {
             strcpy(current_ote_price_str, "--");
             if (err == ESP_ERR_NVS_NOT_FOUND) {
                 ESP_LOGW(TAG, "Price for %s not found in NVS", key);
+            } else if (err == ESP_OK) {
+                /* we *have* the price, just no authoritative time */
+                ESP_LOGI(TAG, "Price present but time not yet authoritative");
             } else {
                 ESP_LOGE(TAG, "nvs_get_str(%s) failed (%d)", key, err);
             }
         }
-
         // make working copy of conditions;
         condition_item w[MAXNUMCONDITONS];
         memcpy(w, conditions, sizeof(w));
 
-        // substitutios of OTEPH (strings based)
+        ///// tokens substitution
         for (int i = 0; i < MAXNUMCONDITONS; ++i) {
             /* terminator row? */
             if (w[i].left[0] == '\0' && w[i].right[0] == '\0') break;
 
             // OTEPH
-            substitute_token(w[i].left, sizeof(w[i].left), "OTEPH", current_ote_price_str);
-            substitute_token(w[i].right, sizeof(w[i].right), "OTEPH", current_ote_price_str);
+            substitute_token(w[i].left, sizeof(w[i].left), "OTEPH",
+                             current_ote_price_str);
+            substitute_token(w[i].right, sizeof(w[i].right), "OTEPH",
+                             current_ote_price_str);
         }
 
         //// conditions evaluation cycle
 
-        if (nntptime_status == 1 && strcmp(current_ote_price_str, "--") != 0) {
+        if ((nntptime_status == 1 || nntptime_status == 2) &&
+            strcmp(current_ote_price_str, "--") != 0) {
             /* evaluate only if certain conditions are met:
             - nntptime_status == 1 (valid time)
             - current_ote_price_str != "--" (valid price)
@@ -1062,7 +1173,8 @@ static void evaluate_do(void* pv) {
                 double left_val = eval_expr(w[i].left, &ok_l);
                 double right_val = eval_expr(w[i].right, &ok_r);
                 if (!ok_l || !ok_r) {
-                    ESP_LOGE(TAG, "Invalid expression: %s %s %s", w[i].left, w[i].operator, w[i].right);
+                    ESP_LOGE(TAG, "Invalid expression: %s %s %s", w[i].left,
+                             w[i].operator, w[i].right);
                     continue; /* skip invalid lines */
                 }
 
@@ -1092,7 +1204,6 @@ static void evaluate_do(void* pv) {
     }
 }
 
-
 /* helper:  "YYYYMMDDHH" → time_t (returns 0 on error) */
 static time_t ymdh_to_time(const char* s) {
     int y, m, d, h;
@@ -1107,14 +1218,17 @@ static time_t ymdh_to_time(const char* s) {
     return mktime(&t); /* 0 if date is invalid    */
 }
 
-
 // Task to grab & log the OTE data every minute
 static void ote_read(void* pv) {
-    const char* URL = "https://www.ote-cr.cz/cs/kratkodobe-trhy/elektrina/denni-trh";
+    const char* URL =
+        "https://www.ote-cr.cz/cs/kratkodobe-trhy/elektrina/denni-trh";
 
-    char* chunk = heap_caps_malloc(CHUNK, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    char* chunk =
+        heap_caps_malloc(CHUNK, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     if (!chunk) {
-        ESP_LOGE(TAG, "Memory missing when trying to allocate buffer for websraping");
+        ESP_LOGE(
+            TAG,
+            "Memory missing when trying to allocate buffer for websraping");
         vTaskDelete(NULL);
     }
 
@@ -1130,7 +1244,8 @@ static void ote_read(void* pv) {
         yyyymmdd[0] = '\0';
         tail_len = 0;
 
-        esp_http_client_config_t cfg = {.url = URL, .timeout_ms = 10000, .user_agent = "automato/grabber"};
+        esp_http_client_config_t cfg = {
+            .url = URL, .timeout_ms = 10000, .user_agent = "automato/grabber"};
         esp_http_client_handle_t c = esp_http_client_init(&cfg);
 
         // fetch headers, possibly activate unzip
@@ -1157,7 +1272,8 @@ static void ote_read(void* pv) {
                 }
                 if (r == 0) break; /* body done */
 
-                /* build working buffer = tail + fresh data  -------------- */
+                /* build working buffer = tail + fresh data  --------------
+                 */
                 static char buf[TAIL + CHUNK + 1];
                 size_t n = 0;
                 memcpy(buf + n, tail, tail_len);
@@ -1166,16 +1282,21 @@ static void ote_read(void* pv) {
                 n += r;
                 buf[n] = '\0';
 
-                /* ---------- 1. date ------------------------------------ */
+                /* ---------- 1. date ------------------------------------
+                 */
                 if (!yyyymmdd[0]) {
                     const char* anchor = strstr(buf, "Výsledky denního trhu");
                     if (anchor) {
                         const char* p = anchor;
                         while (*p && !isdigit((unsigned char)*p)) ++p;
-                        if (isdigit((unsigned char)p[0]) && isdigit((unsigned char)p[1]) && p[2] == '.' &&
-                            isdigit((unsigned char)p[3]) && isdigit((unsigned char)p[4]) && p[5] == '.' &&
-                            isdigit((unsigned char)p[6]) && isdigit((unsigned char)p[7]) &&
-                            isdigit((unsigned char)p[8]) && isdigit((unsigned char)p[9])) {
+                        if (isdigit((unsigned char)p[0]) &&
+                            isdigit((unsigned char)p[1]) && p[2] == '.' &&
+                            isdigit((unsigned char)p[3]) &&
+                            isdigit((unsigned char)p[4]) && p[5] == '.' &&
+                            isdigit((unsigned char)p[6]) &&
+                            isdigit((unsigned char)p[7]) &&
+                            isdigit((unsigned char)p[8]) &&
+                            isdigit((unsigned char)p[9])) {
                             yyyymmdd[0] = p[6];
                             yyyymmdd[1] = p[7];
                             yyyymmdd[2] = p[8];
@@ -1190,7 +1311,8 @@ static void ote_read(void* pv) {
                     }
                 }
 
-                /* ---------- 2. prices ---------------------------------- */
+                /* ---------- 2. prices ----------------------------------
+                 */
                 const char* scan = buf;
                 while ((scan = strstr(scan, "<th")) != NULL) {
                     const char* gt = strchr(scan, '>');
@@ -1198,7 +1320,7 @@ static void ote_read(void* pv) {
                     const char* endth = strstr(gt, "</th>");
                     if (!endth) break;
 
-                    /* extract hour number                                 */
+                    /* extract hour number */
                     char num[4] = {0};
                     size_t numlen = endth - (gt + 1);
                     if (numlen > 3) numlen = 3;
@@ -1209,7 +1331,8 @@ static void ote_read(void* pv) {
                         continue;
                     }
 
-                    /* find next <td …>PRICE</td> after </th> ------------ */
+                    /* find next <td …>PRICE</td> after </th> ------------
+                     */
                     const char* td = strstr(endth, "<td");
                     if (!td) break;
                     const char* gt2 = strchr(td, '>');
@@ -1217,7 +1340,7 @@ static void ote_read(void* pv) {
                     const char* endtd = strstr(gt2, "</td>");
                     if (!endtd) break;
 
-                    /* copy price, trim spaces                             */
+                    /* copy price, trim spaces */
                     const char* s = gt2 + 1;
                     while (s < endtd && isspace((unsigned char)*s)) ++s;
                     const char* e = endtd;
@@ -1234,33 +1357,47 @@ static void ote_read(void* pv) {
                     if (yyyymmdd[0]) {
                         char ts[13];
                         snprintf(ts, sizeof(ts), "%s%02d", yyyymmdd, hour);
-                        ESP_LOGI(TAG, "OTE price grabbed from web for %s: %s", ts, prices[hour - 1]);
+                        ESP_LOGI(TAG, "OTE price grabbed from web for %s: %s",
+                                 ts, prices[hour - 1]);
 
                         // refresh/save to nvs
                         {
                             char key[16]; /* "o_yyyymmddhh"   */
-                            snprintf(key, sizeof(key), "o_%s%02d", yyyymmdd, hour);
+                            snprintf(key, sizeof(key), "o_%s%02d", yyyymmdd,
+                                     hour);
 
                             /* read the value, if it exists */
                             char old_val[16] = {0};
                             size_t sz = sizeof(old_val);
-                            esp_err_t err = nvs_get_str(nvs_handle_storage, key, old_val, &sz);
+                            esp_err_t err = nvs_get_str(nvs_handle_storage, key,
+                                                        old_val, &sz);
 
                             /* store when key is missing OR value differs */
-                            if (err == ESP_ERR_NVS_NOT_FOUND ||                      /* not in NVS   */
-                                (err == ESP_OK && strcmp(old_val, prices[hour - 1])) /* different    */
+                            if (err == ESP_ERR_NVS_NOT_FOUND || /* not in
+                                                                   NVS   */
+                                (err == ESP_OK &&
+                                 strcmp(old_val,
+                                        prices[hour - 1])) /* different */
                             ) {
-                                ESP_LOGI(TAG, "NVS update %s: \"%s\" → \"%s\"", key,
-                                         (err == ESP_OK) ? old_val : "<none>", prices[hour - 1]);
+                                ESP_LOGI(TAG, "NVS update %s: \"%s\" → \"%s\"",
+                                         key,
+                                         (err == ESP_OK) ? old_val : "<none>",
+                                         prices[hour - 1]);
 
-                                err = nvs_set_str(nvs_handle_storage, key, prices[hour - 1]);
+                                err = nvs_set_str(nvs_handle_storage, key,
+                                                  prices[hour - 1]);
                                 if (err == ESP_OK) {
-                                    nvs_commit(nvs_handle_storage); /* make it stick */
+                                    nvs_commit(nvs_handle_storage); /* make it
+                                                                       stick */
                                 } else {
-                                    ESP_LOGE(TAG, "nvs_set_str %s failed (%d)", key, err);
+                                    ESP_LOGE(TAG, "nvs_set_str %s failed (%d)",
+                                             key, err);
                                 }
                             } else {
-                                ESP_LOGI(TAG, "NVS %s not updated, same value %s found", key, old_val);
+                                ESP_LOGI(TAG,
+                                         "NVS %s not updated, same value "
+                                         "%s found",
+                                         key, old_val);
                             }
                         }
                     }
@@ -1269,7 +1406,8 @@ static void ote_read(void* pv) {
                     scan = endtd + 5;
                 }
 
-                /* keep last 512 B for next loop ------------------------- */
+                /* keep last 512 B for next loop -------------------------
+                 */
                 tail_len = n >= TAIL ? TAIL : n;
                 memcpy(tail, buf + n - tail_len, tail_len);
             }
@@ -1279,26 +1417,30 @@ static void ote_read(void* pv) {
 
         //
         for (int h = 1; h <= 24; ++h)
-            if (!price_ok[h - 1]) ESP_LOGW(TAG, "Hour %d not parsed from OTE", h);
+            if (!price_ok[h - 1])
+                ESP_LOGW(TAG, "Hour %d not parsed from OTE", h);
 
         // Tidy up old values from NVS, if present
         {
             /* 1. current timestamp from r_rrrrmmddhh ------------------- */
             time_t now_ts = ymdh_to_time(r_rrrrmmddhh);
             if (now_ts == 0) {
-                ESP_LOGE(TAG, "Failed to parse r_rrrrmmddhh=\"%s\"", r_rrrrmmddhh);
+                ESP_LOGE(TAG, "Failed to parse r_rrrrmmddhh=\"%s\"",
+                         r_rrrrmmddhh);
             } else {
                 bool erased = false;
 
                 /* 2. walk through all string keys in namespace "storage" */
                 nvs_iterator_t it = NULL;
-                esp_err_t res = nvs_entry_find(NVS_DEFAULT_PART_NAME, "storage", NVS_TYPE_STR, &it);
+                esp_err_t res = nvs_entry_find(NVS_DEFAULT_PART_NAME, "storage",
+                                               NVS_TYPE_STR, &it);
                 while (res == ESP_OK) {
                     nvs_entry_info_t info;
                     nvs_entry_info(it, &info);
 
-                    /* keys of interest: "o_YYYYMMDDHH" (13 chars total) */
-                    if (strncmp(info.key, "o_", 2) == 0 && strlen(info.key) == 13) {
+                    /* keys of interest: "o_YYYYMMDDHH" (12 chars total) */
+                    if (strncmp(info.key, "o_", 2) == 0 &&
+                        strlen(info.key) == 12) {
                         time_t key_ts = ymdh_to_time(info.key + 2);
                         if (key_ts && difftime(now_ts, key_ts) > 48 * 3600) {
                             ESP_LOGW(TAG, "Erasing old NVS key %s", info.key);
@@ -1314,11 +1456,35 @@ static void ote_read(void* pv) {
             }
         }
 
-        vTaskDelay(PERIOD_OTE_READ_MS / portTICK_PERIOD_MS);
+        // Verify delay
+        int delay_ms = PERIOD_OTE_READ_MS;  // keep standard rhythm
+
+        if (nntptime_status == 1 || nntptime_status == 2)  // time is valid
+        {
+            /* a fresh, thread-safe copy of the current civil time -------- */
+            struct tm now_tm;
+            memcpy(&now_tm, &timeinfo_sntp,
+                   sizeof(now_tm));  //  <-- already updated by obtain_time()
+
+            /* Have we NOT reached 13:01 yet? ----------------------------- */
+            if (now_tm.tm_hour < 13 ||
+                (now_tm.tm_hour == 13 && now_tm.tm_min < 1)) {
+                /* seconds left until 13:01:00 today ---------------------- */
+                int sec_left =
+                    (12 - now_tm.tm_hour) * 3600 +   // full hours to go
+                    (60 - now_tm.tm_min - 1) * 60 +  // full minutes to go
+                    (60 - now_tm.tm_sec);            // seconds to go
+
+                int ms_left = sec_left * 1000;
+
+                /* if the normal period would overshoot 13:01, shorten it  */
+                if (ms_left > 0 && ms_left < delay_ms) delay_ms = ms_left;
+            }
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(delay_ms)); /* <-- replaces the old line */
     }
 }
-
-
 
 /**
  * @brief main app
@@ -1376,10 +1542,12 @@ void app_main(void) {
     init_variables();
 
     // Register WiFi led tasks
-    xTaskCreatePinnedToCore(wifi_led_1, "wifi_led_1", configMINIMAL_STACK_SIZE * 5, NULL, configMAX_PRIORITIES - 4,
-                            NULL, 1);
-    xTaskCreatePinnedToCore(wifi_led_2, "wifi_led_2", configMINIMAL_STACK_SIZE * 5, NULL, configMAX_PRIORITIES - 4,
-                            NULL, 1);
+    xTaskCreatePinnedToCore(wifi_led_1, "wifi_led_1",
+                            configMINIMAL_STACK_SIZE * 5, NULL,
+                            configMAX_PRIORITIES - 4, NULL, 1);
+    xTaskCreatePinnedToCore(wifi_led_2, "wifi_led_2",
+                            configMINIMAL_STACK_SIZE * 5, NULL,
+                            configMAX_PRIORITIES - 4, NULL, 1);
 
     // initialize queue for the transfer of UART events
     rx_queue = xQueueCreate(QUEUE_RX_LENGTH, sizeof(rx_queue_item));
@@ -1396,23 +1564,28 @@ void app_main(void) {
                                  .rx_flow_ctrl_thresh = MAX_RX_LEN,
                                  .source_clk = UART_SCLK_DEFAULT};
     // In this example we don't even use a buffer for sending data.
-    ESP_ERROR_CHECK(uart_driver_install(RS485_UART_PORT, BUF_SIZE * 2, BUF_SIZE * 2, 20, &uart0_queue, 0));
+    ESP_ERROR_CHECK(uart_driver_install(RS485_UART_PORT, BUF_SIZE * 2,
+                                        BUF_SIZE * 2, 20, &uart0_queue, 0));
     // Configure UART parameters
     ESP_ERROR_CHECK(uart_param_config(RS485_UART_PORT, &uart_config));
     // Set UART pins
-    ESP_ERROR_CHECK(uart_set_pin(RS485_UART_PORT, RS485_TXD, RS485_RXD, RS485_RTS, RS485_CTS));
+    ESP_ERROR_CHECK(uart_set_pin(RS485_UART_PORT, RS485_TXD, RS485_RXD,
+                                 RS485_RTS, RS485_CTS));
     // Set RS485 half duplex mode
-    ESP_ERROR_CHECK(uart_set_mode(RS485_UART_PORT, UART_MODE_RS485_HALF_DUPLEX));
+    ESP_ERROR_CHECK(
+        uart_set_mode(RS485_UART_PORT, UART_MODE_RS485_HALF_DUPLEX));
     // uart_set_mode(RS485_UART_PORT, UART_MODE_UART)
 
     // Set read timeout of UART TOUT feature
     ESP_ERROR_CHECK(uart_set_rx_timeout(RS485_UART_PORT, RS485_READ_TOUT));
 
-    xTaskCreatePinnedToCore(uart_event_task, "uart_event_task", 8192, NULL, configMAX_PRIORITIES - 2, NULL, 1);
+    xTaskCreatePinnedToCore(uart_event_task, "uart_event_task", 8192, NULL,
+                            configMAX_PRIORITIES - 2, NULL, 1);
 
     // inicializuj NVS
     esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
+        ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         /* NVS partition was truncated
          * and needs to be erased */
         ESP_ERROR_CHECK(nvs_flash_erase());
@@ -1434,8 +1607,9 @@ void app_main(void) {
     esp_sntp_init();
 
     // Register obtain time task
-    xTaskCreatePinnedToCore(obtain_time, "obtain_time", configMINIMAL_STACK_SIZE * 5, NULL, configMAX_PRIORITIES - 4,
-                            NULL, 1);
+    xTaskCreatePinnedToCore(obtain_time, "obtain_time",
+                            configMINIMAL_STACK_SIZE * 5, NULL,
+                            configMAX_PRIORITIES - 4, NULL, 1);
 
     /* Initialize the event loop */
     ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -1444,12 +1618,17 @@ void app_main(void) {
     /* Register our event handler for Wi-Fi, IP and Provisioning related
      * events
      */
-    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_PROV_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_register(PROTOCOMM_TRANSPORT_BLE_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
-    ESP_ERROR_CHECK(
-        esp_event_handler_register(PROTOCOMM_SECURITY_SESSION_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(
+        WIFI_PROV_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(
+        PROTOCOMM_TRANSPORT_BLE_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(PROTOCOMM_SECURITY_SESSION_EVENT,
+                                               ESP_EVENT_ANY_ID, &event_handler,
+                                               NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
+                                               &event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
+                                               &event_handler, NULL));
 
     /* Initialize Wi-Fi including netif with default config */
     esp_netif_create_default_wifi_sta();
@@ -1457,8 +1636,9 @@ void app_main(void) {
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
     /* Configuration for the provisioning manager */
-    wifi_prov_mgr_config_t config = {.scheme = wifi_prov_scheme_ble,
-                                     .scheme_event_handler = WIFI_PROV_SCHEME_BLE_EVENT_HANDLER_FREE_BTDM};
+    wifi_prov_mgr_config_t config = {
+        .scheme = wifi_prov_scheme_ble,
+        .scheme_event_handler = WIFI_PROV_SCHEME_BLE_EVENT_HANDLER_FREE_BTDM};
 
     /* Initialize provisioning manager with the
      * configuration parameters set above */
@@ -1472,7 +1652,8 @@ void app_main(void) {
     bool button_reprovisioning = false;
     if (provisioned) {
         // Wait for reset button release and count how long pressed
-        ESP_LOGI(TAG, "Wait for Reset button release: %d", gpio_get_level(WIFI_INIT_BUTTON_GPIO));
+        ESP_LOGI(TAG, "Wait for Reset button release: %d",
+                 gpio_get_level(WIFI_INIT_BUTTON_GPIO));
         // počet 100 ms intervalů testu
         int times = WIFI_BUTTON_PUSHMS_TO_INIT / 100;
 
@@ -1499,37 +1680,51 @@ void app_main(void) {
     // po reset vymaž existující hesla
     ESP_LOGW(TAG, "button_reprovisioning: %d", button_reprovisioning);
     if (button_reprovisioning) {
-        ESP_LOGI(TAG, "Erasing standard passwords for automato and servis");
+        ESP_LOGW(TAG, "Erasing standard passwords for automato and servis");
         nvs_erase_key(nvs_handle_storage, "pwd_automato");
         nvs_erase_key(nvs_handle_storage, "pwd_servis");
+
+        /*
+        ESP_LOGW(TAG, "Factory reset: wiping entire NVS partition");
+
+        nvs_flash_deinit();                  // close all open handles
+        ESP_ERROR_CHECK(nvs_flash_erase());  // <-- one call erases everything
+        ESP_ERROR_CHECK(nvs_flash_init());   // re-initialise for fresh use
+        */
     }
 
     // načti aplikační hesla z nvs
     char read_nvs_value[32];
     size_t required_size = sizeof(read_nvs_value);
     //
-    int err = nvs_get_str(nvs_handle_storage, "pwd_automato", read_nvs_value, &required_size);
+    int err = nvs_get_str(nvs_handle_storage, "pwd_automato", read_nvs_value,
+                          &required_size);
     if (err == ESP_OK) {
         strcpy(users[0].password, read_nvs_value);
         ESP_LOGW(TAG, "Password for automato user read from nvs");
-        // ESP_LOGI(TAG, "Password for automato user read from nvs, %s", users[0].password);
+        // ESP_LOGI(TAG, "Password for automato user read from nvs, %s",
+        // users[0].password);
     } else {
-        ESP_LOGW(TAG, "nvs_get_str  for password automato returned %d, size %u", err, (unsigned)required_size);
+        ESP_LOGW(TAG, "nvs_get_str  for password automato returned %d, size %u",
+                 err, (unsigned)required_size);
         ESP_LOGW(TAG, "Standard password for the user automato loaded");
     }
     //
-    err = nvs_get_str(nvs_handle_storage, "pwd_servis", read_nvs_value, &required_size);
+    err = nvs_get_str(nvs_handle_storage, "pwd_servis", read_nvs_value,
+                      &required_size);
     if (err == ESP_OK) {
         strcpy(users[1].password, read_nvs_value);
         ESP_LOGW(TAG, "Password for the servis user read from nvs");
         // ESP_LOGI(TAG, "Heslo pro servis nacteno: %s", users[1].password);
     } else {
-        ESP_LOGW(TAG, "nvs_get_str for password servis returned %d, size %u", err, (unsigned)required_size);
+        ESP_LOGW(TAG, "nvs_get_str for password servis returned %d, size %u",
+                 err, (unsigned)required_size);
         ESP_LOGW(TAG, "Standard password for the user servis loaded");
     }
 
     // výrobní číslo: pokud existuje, načti z nvs, jinak standardní
-    err = nvs_get_str(nvs_handle_storage, "production_num", read_nvs_value, &required_size);
+    err = nvs_get_str(nvs_handle_storage, "production_num", read_nvs_value,
+                      &required_size);
     if (err == ESP_OK) {
         strcpy(vyrobnicislo, read_nvs_value);
         ESP_LOGI(TAG, "Production number %s read from nvs", vyrobnicislo);
@@ -1541,11 +1736,12 @@ void app_main(void) {
         if (err == ESP_OK) {
             nvs_commit(nvs_handle_storage);
         } else {
-            ESP_LOGE(TAG, "Error writing the standard production number to nvs");
+            ESP_LOGE(TAG,
+                     "Error writing the standard production number to nvs");
         }
     }
-    /* If device is not yet provisioned or reprovisioning button pressed long,
-     * start provisioning service */
+    /* If device is not yet provisioned or reprovisioning button pressed
+     * long, start provisioning service */
     if ((!provisioned) | button_reprovisioning) {
         led2_status = LED2_STATUS_WIFI_REPROVISIONING;
 
@@ -1568,25 +1764,28 @@ void app_main(void) {
 
         const char* service_key = NULL;
 
-        /* This step is only useful when scheme is wifi_prov_scheme_ble. This
-         * will set a custom 128 bit UUID which will be included in the BLE
-         * advertisement and will correspond to the primary GATT service that
-         * provides provisioning endpoints as GATT characteristics. Each GATT
-         * characteristic will be formed using the primary service UUID as base,
-         * with different auto assigned 12th and 13th bytes (assume counting
-         * starts from 0th byte). The client side applications must identify the
-         * endpoints by reading the User Characteristic Description descriptor
-         * (0x2901) for each characteristic, which contains the endpoint name of
-         * the characteristic */
+        /* This step is only useful when scheme is wifi_prov_scheme_ble.
+         * This will set a custom 128 bit UUID which will be included in the
+         * BLE advertisement and will correspond to the primary GATT service
+         * that provides provisioning endpoints as GATT characteristics.
+         * Each GATT characteristic will be formed using the primary service
+         * UUID as base, with different auto assigned 12th and 13th bytes
+         * (assume counting starts from 0th byte). The client side
+         * applications must identify the endpoints by reading the User
+         * Characteristic Description descriptor (0x2901) for each
+         * characteristic, which contains the endpoint name of the
+         * characteristic */
         uint8_t custom_service_uuid[] = {
             /* LSB <---------------------------------------
              * ---------------------------------------> MSB */
-            0xb4, 0xdf, 0x5a, 0x1c, 0x3f, 0x6b, 0xf4, 0xbf, 0xea, 0x4a, 0x82, 0x03, 0x04, 0x90, 0x1a, 0x02,
+            0xb4, 0xdf, 0x5a, 0x1c, 0x3f, 0x6b, 0xf4, 0xbf,
+            0xea, 0x4a, 0x82, 0x03, 0x04, 0x90, 0x1a, 0x02,
         };
         wifi_prov_scheme_ble_set_service_uuid(custom_service_uuid);
 
         /* Start provisioning service */
-        ESP_ERROR_CHECK(wifi_prov_mgr_start_provisioning(security, (const void*)sec_params, service_name, service_key));
+        ESP_ERROR_CHECK(wifi_prov_mgr_start_provisioning(
+            security, (const void*)sec_params, service_name, service_key));
     } else {
         ESP_LOGI(TAG, "Already provisioned, starting Wi-Fi STA");
 
@@ -1600,7 +1799,8 @@ void app_main(void) {
     }
 
     /* Wait for Wi-Fi connection */
-    xEventGroupWaitBits(wifi_event_group, WIFI_CONNECTED_EVENT, true, true, portMAX_DELAY);
+    xEventGroupWaitBits(wifi_event_group, WIFI_CONNECTED_EVENT, true, true,
+                        portMAX_DELAY);
 
     led2_status = LED2_STATUS_WIFI_CONNECTED;
 
@@ -1624,11 +1824,13 @@ void app_main(void) {
     }
 
     // initialize the send task
-    xTaskCreatePinnedToCore(uart_tx_task, "uart_tx_task", configMINIMAL_STACK_SIZE * 5, NULL, configMAX_PRIORITIES - 2,
-                            NULL, 1);
+    xTaskCreatePinnedToCore(uart_tx_task, "uart_tx_task",
+                            configMINIMAL_STACK_SIZE * 5, NULL,
+                            configMAX_PRIORITIES - 2, NULL, 1);
 
     // initialize the send receive cycle
-    xTaskCreatePinnedToCore(receive_task, "send_receive_task", configMINIMAL_STACK_SIZE * 5, NULL,
+    xTaskCreatePinnedToCore(receive_task, "send_receive_task",
+                            configMINIMAL_STACK_SIZE * 5, NULL,
                             configMAX_PRIORITIES - 3, NULL, 1);
 
     // everything processed, turn status led green
@@ -1639,20 +1841,23 @@ void app_main(void) {
 
     // get MAC address
     ESP_ERROR_CHECK(esp_wifi_get_mac(WIFI_IF_STA, mac));
-    snprintf(mac_string, sizeof(mac_string), "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4],
-             mac[5]);
+    snprintf(mac_string, sizeof(mac_string), "%02x:%02x:%02x:%02x:%02x:%02x",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
     // Initialize grab OTE data task
     // default httpd server priority should be 5, now giving lower: 3
-    // ESP_LOGW(TAG, "free heap before OTE : %ld", esp_get_free_heap_size());
+    // ESP_LOGW(TAG, "free heap before OTE : %ld",
+    // esp_get_free_heap_size());
 
-    xTaskCreatePinnedToCore(ote_read, "ote_read", configMINIMAL_STACK_SIZE * 5, NULL, configMAX_PRIORITIES - 4, NULL,
-                            1);
+    xTaskCreatePinnedToCore(ote_read, "ote_read", configMINIMAL_STACK_SIZE * 5,
+                            NULL, configMAX_PRIORITIES - 4, NULL, 1);
 
     // initiate evaluate_actions task
-    xTaskCreatePinnedToCore(evaluate_do, "evaluate_do", 16384, NULL, configMAX_PRIORITIES - 5, NULL, 1);
+    xTaskCreatePinnedToCore(evaluate_do, "evaluate_do", 16384, NULL,
+                            configMAX_PRIORITIES - 5, NULL, 1);
 
-    // ESP_LOGW(TAG, "free heap after OTE  : %ld", esp_get_free_heap_size());
+    // ESP_LOGW(TAG, "free heap after OTE  : %ld",
+    // esp_get_free_heap_size());
 
     // initialize mDNS
     start_mdns_service();
@@ -1671,10 +1876,10 @@ void app_main(void) {
         gst_lang = LANG_CZ;  // Default
     } else {
         // first‐boot or invalid → write default
-        nvs_set_blob(nvs_handle_storage, "gst_lang", &gst_lang, sizeof(gst_lang));
+        nvs_set_blob(nvs_handle_storage, "gst_lang", &gst_lang,
+                     sizeof(gst_lang));
         nvs_commit(nvs_handle_storage);
     }
-
 
     // dummy ticks cycle
     while (1) {
@@ -1685,14 +1890,14 @@ void app_main(void) {
          nvs_handle_t phandle;
          esp_err_t err = nvs_open("storage", NVS_READONLY, &phandle);
          nvs_iterator_t it = NULL;
-         esp_err_t res = nvs_entry_find("nvs", "storage", NVS_TYPE_ANY, &it);
-         while (res == ESP_OK) {
-         nvs_entry_info_t info;
-         nvs_entry_info(it, &info); // Can omit error check if parameters are
-         guaranteed to be non-NULL ESP_LOGI(TAG, "***NVS: key '%s', type '%d'",
-         info.key, info.type); if (info.type == 33) { char gstr[50]; size_t
-         required_size = 50; ESP_ERROR_CHECK( nvs_get_str(phandle, info.key,
-         gstr, &required_size)); ESP_LOGI(TAG, "***NVS string: '%s'", gstr);
+         esp_err_t res = nvs_entry_find("nvs", "storage", NVS_TYPE_ANY,
+         &it); while (res == ESP_OK) { nvs_entry_info_t info;
+         nvs_entry_info(it, &info); // Can omit error check if parameters
+         are guaranteed to be non-NULL ESP_LOGI(TAG, "***NVS: key '%s', type
+         '%d'", info.key, info.type); if (info.type == 33) { char gstr[50];
+         size_t required_size = 50; ESP_ERROR_CHECK( nvs_get_str(phandle,
+         info.key, gstr, &required_size)); ESP_LOGI(TAG, "***NVS string:
+         '%s'", gstr);
          }
          res = nvs_entry_next(&it);
          }
@@ -1725,7 +1930,8 @@ void app_main(void) {
         comm_status = COMST_OK;
         // !!!
 
-        if (comm_status == COMST_OK && provisioned && device_connected && nntptime_status == 1) {
+        if (comm_status == COMST_OK && provisioned && device_connected &&
+            (nntptime_status == 1 || nntptime_status == 2)) {
             led1_status = LED1_STATUS_OK;
         } else {
             led1_status = LED1_STATUS_ERROR;
@@ -1737,11 +1943,13 @@ void app_main(void) {
                  "prod.num.: %s, errors: comm=%d "
                  "wifi_prov=%d "
                  "wifi_conn=%d",
-                 ipaddress, mac_string, vyrobnicislo, comm_status, !provisioned, !device_connected);
+                 ipaddress, mac_string, vyrobnicislo, comm_status, !provisioned,
+                 !device_connected);
 
         // development - helper logging
 
-        ESP_LOGI(TAG, "===================== apst:%d  wifiapst:%d", apst, wifiapst);
+        ESP_LOGI(TAG, "===================== apst:%d  wifiapst:%d", apst,
+                 wifiapst);
 
         // next tick pause+
         vTaskDelay(4000 / portTICK_PERIOD_MS);

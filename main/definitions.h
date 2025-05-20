@@ -1,5 +1,38 @@
-// verze firmware:
+//
+//  definitions.h
+//
+
+// Firmware version
 #define FW_VERSION "automato_1_0"
+
+// Left sides list
+char *DEF_LEFTSIDES[]={
+    "OTEPH",
+    ""  // sentinel
+};
+
+// Left sides list
+char *DEF_OPERATORS[]={
+    "=",
+    ">=",
+    "<=",
+    "<",
+    ">",
+    ""  // sentinel
+};
+
+// Right sides list
+char *DEF_ACTIONS[]={
+    "REL1ON",
+    "REL1OFF",
+    "REL2ON",
+    "REL2OFF",
+    "REL3ON",
+    "REL3OFF",
+    "REDLEDON",
+    "REDLEDOFF",
+    ""  // sentinel
+};
 
 
 
@@ -27,7 +60,8 @@
 //// definition for setup (actions)
 // define maximum number of conditions
 #define MAXNUMCONDITONS 10
-#define SIZERULES 33
+// define maximum length of right side (as string)
+#define RIGHTEVALSIZE "40"
 
 
 // jednoznačné device id:

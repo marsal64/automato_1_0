@@ -9,7 +9,9 @@
 /* ----------------------------------------------------------------------
  *  Tiny helpers
  * --------------------------------------------------------------------*/
-static inline void chunk(httpd_req_t *r, const char *s) { httpd_resp_send_chunk(r, s, HTTPD_RESP_USE_STRLEN); }
+static inline void chunk(httpd_req_t *r, const char *s) {
+    httpd_resp_send_chunk(r, s, HTTPD_RESP_USE_STRLEN);
+}
 
 static int price_cmp(const void *a, const void *b) /* newest → oldest */
 {
@@ -24,8 +26,8 @@ static int price_cmp(const void *a, const void *b) /* newest → oldest */
 esp_err_t root_get_handler(httpd_req_t *req) {
     /* ---------- auth -------------------------------------------------- */
     char cookie_value[32];
-    if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) || strcmp(cookie_value, "1") != 0 ||
-        current_user_id == -1) {
+    if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) ||
+        strcmp(cookie_value, "1") != 0 || current_user_id == -1) {
         httpd_resp_set_status(req, "307 Temporary Redirect");
         httpd_resp_set_hdr(req, "Location", "/login");
         httpd_resp_send(req, NULL, 0);
@@ -45,16 +47,19 @@ esp_err_t root_get_handler(httpd_req_t *req) {
     size_t n_prices = 0;
 
     nvs_iterator_t it = NULL;
-    if (nvs_entry_find(NVS_DEFAULT_PART_NAME, "storage", NVS_TYPE_STR, &it) == ESP_OK) {
+    if (nvs_entry_find(NVS_DEFAULT_PART_NAME, "storage", NVS_TYPE_STR, &it) ==
+        ESP_OK) {
         do {
             nvs_entry_info_t info;
             nvs_entry_info(it, &info);
-            if (!strncmp(info.key, "o_", 2) && strlen(info.key) == 13 &&
+            if (!strncmp(info.key, "o_", 2) && strlen(info.key) == 12 &&
                 n_prices < sizeof(prices) / sizeof(prices[0])) {
                 strncpy(prices[n_prices].key, info.key + 2, 12);
                 prices[n_prices].key[12] = 0;
                 size_t sz = sizeof(prices[n_prices].val);
-                if (nvs_get_str(nvs_handle_storage, info.key, prices[n_prices].val, &sz) == ESP_OK) ++n_prices;
+                if (nvs_get_str(nvs_handle_storage, info.key,
+                                prices[n_prices].val, &sz) == ESP_OK)
+                    ++n_prices;
             }
         } while (nvs_entry_next(&it) == ESP_OK);
         nvs_release_iterator(it);
@@ -63,78 +68,90 @@ esp_err_t root_get_handler(httpd_req_t *req) {
 
     /* ---------- HTML start ------------------------------------------- */
     httpd_resp_set_type(req, "text/html; charset=UTF-8");
-    chunk(req,
-          "<!DOCTYPE html><html><head>"
-          "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-          "<style>"
-          "body{font-family:Helvetica,Arial,sans-serif;margin:0;background:#fafafa}"
-          /* common wrapper */
-          ".wrapper{"
-          "    margin:20px 0 0 20px;"
-          "    max-width:860px;"
-          "    border:1px solid #bbb;"
-          "    padding:0 20px 20px 20px;"
-          "    background:#fff;"
-          "}"
-          /* logo bar (same as /setup) */
-          ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
-          ".logo img{height:38px;width:auto}"
-          ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
-          /* rest of layout */
-          ".grid{display:grid;grid-template-columns:1fr 1fr}"
-          ".prices,.actions{border-top:1px solid #bbb;padding:6px;box-sizing:border-box}"
-          ".actions{border-left:1px solid #bbb}"
-          ".prices b{color:#c00}"
-          /* centre both column headings */
-          ".prices h3,.actions h3{margin:0 0 8px 0;text-align:center}"
-          /* one unified horizontal bar (date + IP + button) */
-          ".headbar{display:flex;justify-content:space-between;align-items:center;height:46px;padding:0 8px;}"
-          "</style>"
-          "<script>"
-          "function logoff(){location.href='/logout';}\n"
-          "function updateDom(d){\n"
-          "  document.getElementById('datetime').innerHTML = d.datetime;\n"
-          "  /* prices */\n"
-          "  const ulp=document.getElementById('prices-list'); ulp.innerHTML='';\n"
-          "  d.prices.forEach(p=>{\n"
-          "     const li=document.createElement('li');\n"
-          "const k = p.key;"
-          "const fmt = `${k.slice(0,4)}-${k.slice(4,6)}-${k.slice(6,8)}&nbsp;&nbsp;&nbsp;${k.slice(8,10)}`;"
-          "li.innerHTML = (p.key === d.now_key ? '<b>' : '') + fmt + '&nbsp;:&nbsp;&nbsp;&nbsp;' + p.val + (p.key === "
-          "d.now_key ? "
-          "'</b>' : '');"
-          "     ulp.appendChild(li);\n"
-          "  });\n"
-          "  /* actions */\n"
-          "  const ula=document.getElementById('actions-list'); ula.innerHTML='';\n"
-          "  d.actions.forEach(a=>{\n"
-          "     const li=document.createElement('li');\n"
-          "     li.innerHTML = a.action + '&nbsp;&rarr;&nbsp;' + a.timestamp;\n"
-          "     ula.appendChild(li);\n"
-          "  });\n"
-          "}\n"
-          "async function fetchData(){\n"
-          "  try{\n"
-          "    const r=await fetch('/data');\n"
-          "    if(r.ok){const j=await r.json(); updateDom(j);} }\n"
-          "  catch(e){console.warn('fetch',e);} }\n"
-          "window.addEventListener('load',()=>{fetchData(); setInterval(fetchData,1000);});"
-          "</script>"
-          "</head><body>"
-          /* unified header -------------------------------------------------- */
-          "<div class='logo'>"
-          "<img src='/logo' alt='automato'>"
-          "<span>automato</span>"
-          "</div>"
-          "<div class='wrapper'>");
+    chunk(
+        req,
+        "<!DOCTYPE html><html><head>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        "<style>"
+        "body{font-family:Arial,sans-serif;margin:0;background:#"
+        "fafafa}"
+        /* common wrapper */
+        ".wrapper{"
+        "    margin:20px 0 0 20px;"
+        "    max-width:860px;"
+        "    border:1px solid #bbb;"
+        "    padding:0 20px 20px 20px;"
+        "    background:#fff;"
+        "}"
+        /* logo bar (same as /setup) */
+        ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
+        ".logo img{height:38px;width:auto}"
+        ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
+        /* rest of layout */
+        ".grid{display:grid;grid-template-columns:1fr 1fr}"
+        ".prices,.actions{border-top:1px solid "
+        "#bbb;padding:6px;box-sizing:border-box}"
+        ".actions{border-left:1px solid #bbb}"
+        ".prices b{color:#c00}"
+        /* centre both column headings */
+        ".prices h3,.actions h3{margin:0 0 8px 0;text-align:center}"
+        /* one unified horizontal bar (date + IP + button) */
+        ".headbar{display:flex;justify-content:space-between;align-items:"
+        "center;height:46px;padding:0 8px;}"
+        "</style>"
+        "<script>"
+        "function logoff(){location.href='/logout';}\n"
+        "function updateDom(d){\n"
+        "  document.getElementById('datetime').innerHTML = d.datetime;\n"
+        "  /* prices */\n"
+        "  const ulp=document.getElementById('prices-list'); "
+        "ulp.innerHTML='';\n"
+        "  d.prices.forEach(p=>{\n"
+        "     const li=document.createElement('li');\n"
+        "const k = p.key;"
+        "const fmt = "
+        "`${k.slice(0,4)}-${k.slice(4,6)}-${k.slice(6,8)}&nbsp;&nbsp;&nbsp;${k."
+        "slice(8,10)}`;"
+        "li.innerHTML = (p.key === d.now_key ? '<b>' : '') + fmt + "
+        "'&nbsp;:&nbsp;&nbsp;&nbsp;' + p.val + (p.key === "
+        "d.now_key ? "
+        "'</b>' : '');"
+        "     ulp.appendChild(li);\n"
+        "  });\n"
+        "  /* actions */\n"
+        "  const ula=document.getElementById('actions-list'); "
+        "ula.innerHTML='';\n"
+        "  d.actions.forEach(a=>{\n"
+        "     const li=document.createElement('li');\n"
+        "     li.innerHTML = a.action + '&nbsp;&rarr;&nbsp;' + a.timestamp;\n"
+        "     ula.appendChild(li);\n"
+        "  });\n"
+        "}\n"
+        "async function fetchData(){\n"
+        "  try{\n"
+        "    const r=await fetch('/data');\n"
+        "    if(r.ok){const j=await r.json(); updateDom(j);} }\n"
+        "  catch(e){console.warn('fetch',e);} }\n"
+        "window.addEventListener('load',()=>{fetchData(); "
+        "setInterval(fetchData,1000);});"
+        "</script>"
+        "</head><body>"
+        /* unified header -------------------------------------------------- */
+        "<div class='logo'>"
+        "<img src='/logo' alt='automato'>"
+        "<span>automato</span>"
+        "</div>"
+        "<div class='wrapper'>");
 
     /* ---------- head bar --------------------------------------------- */
     char dt_buf[64];
     if (nntptime_status) {
-        strftime(dt_buf, sizeof(dt_buf), "%Y-%m-%d&nbsp;%H:%M:%S", &timeinfo_sntp);
+        strftime(dt_buf, sizeof(dt_buf), "%Y-%m-%d&nbsp;%H:%M:%S",
+                 &timeinfo_sntp);
         int dw = timeinfo_sntp.tm_wday;
         if (dw < 0 || dw > 6) dw = 0;
-        snprintf(dt_buf + strlen(dt_buf), sizeof(dt_buf) - strlen(dt_buf), "&nbsp;(%s)", translatedays[dw]);
+        snprintf(dt_buf + strlen(dt_buf), sizeof(dt_buf) - strlen(dt_buf),
+                 "&nbsp;(%s)", translatedays[dw]);
     } else
         strcpy(dt_buf, t("čas nenastaven"));
 
@@ -171,7 +188,9 @@ esp_err_t root_get_handler(httpd_req_t *req) {
 
     for (size_t i = 0; i < n_prices; ++i) {
         char line[128];
-        snprintf(line, sizeof(line), "<li>%.4s-%.2s-%.2s&nbsp;&nbsp;&nbsp;%.2s&nbsp;:&nbsp;&nbsp;&nbsp;%s</li>",
+        snprintf(line, sizeof(line),
+                 "<li>%.4s-%.2s-%.2s&nbsp;&nbsp;&nbsp;%.2s&nbsp;:&nbsp;&nbsp;&"
+                 "nbsp;%s</li>",
                  prices[i].key,      // YYYY
                  prices[i].key + 4,  // MM
                  prices[i].key + 6,  // DD
@@ -190,11 +209,13 @@ esp_err_t root_get_handler(httpd_req_t *req) {
     /* actions column --------------------------------------------------- */
     chunk(req, "<div class='actions'><h3>");
     chunk(req, t("Akce&nbsp;&rarr;&nbsp;naposledy aktivováno"));
-    chunk(req, "</h3><ul id='actions-list' style='margin:0;padding-left:1em;'>");
-    for (int i = 0; i < NUMLASTACTIONSLOG && last_actions_log[i].action[0]; ++i) {
+    chunk(req,
+          "</h3><ul id='actions-list' style='margin:0;padding-left:1em;'>");
+    for (int i = 0; i < NUMLASTACTIONSLOG && last_actions_log[i].action[0];
+         ++i) {
         char line[512];
-        snprintf(line, sizeof(line), "<li>%s&nbsp;&rarr;&nbsp;%s</li>", last_actions_log[i].action,
-                 last_actions_log[i].timestamp);
+        snprintf(line, sizeof(line), "<li>%s&nbsp;&rarr;&nbsp;%s</li>",
+                 last_actions_log[i].action, last_actions_log[i].timestamp);
         chunk(req, line);
     }
 
@@ -219,10 +240,12 @@ esp_err_t data_get_handler(httpd_req_t *req) {
     /* ---------- build date/time string (same format as root) --------- */
     char dt_buf[64];
     if (nntptime_status) {
-        strftime(dt_buf, sizeof(dt_buf), "%Y-%m-%d&nbsp;%H:%M:%S", &timeinfo_sntp);
+        strftime(dt_buf, sizeof(dt_buf), "%Y-%m-%d&nbsp;%H:%M:%S",
+                 &timeinfo_sntp);
         int dw = timeinfo_sntp.tm_wday;
         if (dw < 0 || dw > 6) dw = 0;
-        snprintf(dt_buf + strlen(dt_buf), sizeof(dt_buf) - strlen(dt_buf), "&nbsp;(%s)", t(translatedays[dw]));
+        snprintf(dt_buf + strlen(dt_buf), sizeof(dt_buf) - strlen(dt_buf),
+                 "&nbsp;(%s)", t(translatedays[dw]));
     } else
         strcpy(dt_buf, t("čas nenastaven"));
 
@@ -234,7 +257,8 @@ esp_err_t data_get_handler(httpd_req_t *req) {
     price_t prices[400];
     size_t n_prices = 0;
     nvs_iterator_t it = NULL;
-    if (nvs_entry_find(NVS_DEFAULT_PART_NAME, "storage", NVS_TYPE_STR, &it) == ESP_OK) {
+    if (nvs_entry_find(NVS_DEFAULT_PART_NAME, "storage", NVS_TYPE_STR, &it) ==
+        ESP_OK) {
         do {
             nvs_entry_info_t info;
             nvs_entry_info(it, &info);
@@ -243,7 +267,9 @@ esp_err_t data_get_handler(httpd_req_t *req) {
                 strncpy(prices[n_prices].key, info.key + 2, 12);
                 prices[n_prices].key[12] = 0;
                 size_t sz = sizeof(prices[n_prices].val);
-                if (nvs_get_str(nvs_handle_storage, info.key, prices[n_prices].val, &sz) == ESP_OK) ++n_prices;
+                if (nvs_get_str(nvs_handle_storage, info.key,
+                                prices[n_prices].val, &sz) == ESP_OK)
+                    ++n_prices;
             }
         } while (nvs_entry_next(&it) == ESP_OK);
         nvs_release_iterator(it);
@@ -256,16 +282,23 @@ esp_err_t data_get_handler(httpd_req_t *req) {
     char buf[4096];
     char *p = buf;
     size_t rem = sizeof(buf);
+
 #define APP(...) p += snprintf(p, rem - (p - buf), __VA_ARGS__)
 
-    APP("{\"datetime\":\"%s\",\"now_key\":\"%s\",\"prices\":[", dt_buf, r_rrrrmmddhh);
+    APP("{\"datetime\":\"%s\",\"now_key\":\"%s\",\"prices\":[", dt_buf,
+        r_rrrrmmddhh);
     for (size_t i = 0; i < n_prices; ++i) {
-        APP("{\"key\":\"%s\",\"val\":\"%s\"}%s", prices[i].key, prices[i].val, (i + 1 < n_prices ? "," : ""));
+        APP("{\"key\":\"%s\",\"val\":\"%s\"}%s", prices[i].key, prices[i].val,
+            (i + 1 < n_prices ? "," : ""));
     }
     APP("],\"actions\":[");
-    for (int i = 0; i < NUMLASTACTIONSLOG && last_actions_log[i].action[0]; ++i) {
-        APP("{\"action\":\"%s\",\"timestamp\":\"%s\"}%s", last_actions_log[i].action, last_actions_log[i].timestamp,
-            (i + 1 < NUMLASTACTIONSLOG && last_actions_log[i + 1].action[0] ? "," : ""));
+    for (int i = 0; i < NUMLASTACTIONSLOG && last_actions_log[i].action[0];
+         ++i) {
+        APP("{\"action\":\"%s\",\"timestamp\":\"%s\"}%s",
+            last_actions_log[i].action, last_actions_log[i].timestamp,
+            (i + 1 < NUMLASTACTIONSLOG && last_actions_log[i + 1].action[0]
+                 ? ","
+                 : ""));
     }
     APP("]}");
 
@@ -274,43 +307,42 @@ esp_err_t data_get_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-
 esp_err_t login_get_handler(httpd_req_t *req) {
     char html[RESP_SIZE];
-    size_t n = snprintf(html, sizeof(html),
-                        "<!DOCTYPE html>"
-                        "<html lang=\"cs\">"
-                        "<head>"
-                        "  <meta charset=\"UTF-8\">"
-                        "  <title>%s</title>"
-                        "  <style>"
-                        "    body  { font-family:Arial,sans-serif; display:flex; "
-                        "justify-content:center; align-items:center; height:100vh; margin:0; }"
-                        "    form  { border:1px solid #ddd; padding:20px; box-shadow:2px 2px "
-                        "5px rgba(0,0,0,0.2); }"
-                        "  </style>"
-                        "</head><body>"
-                        "<form action=\"/login\" method=\"post\">"
-                        "  <img src=\"/logo\" alt=\"%s\" style=\"width:15%%; height:auto;\">"
-                        "  <h2>%s</h2>"
-                        "  %s:<br><input type=\"text\" name=\"username\" "
-                        "maxlength=\"32\"><br><br>"
-                        "  %s:<br><input type=\"password\" name=\"password\" "
-                        "maxlength=\"32\"><br><br>"
-                        "  <input type=\"submit\" value=\"%s\">"
-                        "</form></body></html>",
-                        t("automato"),                      /* <title>            */
-                        t("automato"),                      /* logo alt           */
-                        t("automato - přihlášení obsluhy"), /* heading            */
-                        t("Uživatelské jméno"),             /* label – username   */
-                        t("Heslo"),                         /* label – password   */
-                        t("Přihlášení")                     /* submit             */
+    size_t n = snprintf(
+        html, sizeof(html),
+        "<!DOCTYPE html>"
+        "<html lang=\"cs\">"
+        "<head>"
+        "  <meta charset=\"UTF-8\">"
+        "  <title>%s</title>"
+        "  <style>"
+        "    body  { font-family:Arial,sans-serif; display:flex; "
+        "justify-content:center; align-items:center; height:100vh; margin:0; }"
+        "    form  { border:1px solid #ddd; padding:20px; box-shadow:2px 2px "
+        "5px rgba(0,0,0,0.2); }"
+        "  </style>"
+        "</head><body>"
+        "<form action=\"/login\" method=\"post\">"
+        "  <img src=\"/logo\" alt=\"%s\" style=\"width:15%%; height:auto;\">"
+        "  <h2>%s</h2>"
+        "  %s:<br><input type=\"text\" name=\"username\" "
+        "maxlength=\"32\"><br><br>"
+        "  %s:<br><input type=\"password\" name=\"password\" "
+        "maxlength=\"32\"><br><br>"
+        "  <input type=\"submit\" value=\"%s\">"
+        "</form></body></html>",
+        t("automato"),                      /* <title>            */
+        t("automato"),                      /* logo alt           */
+        t("automato - přihlášení obsluhy"), /* heading            */
+        t("Uživatelské jméno"),             /* label – username   */
+        t("Heslo"),                         /* label – password   */
+        t("Přihlášení")                     /* submit             */
     );
 
     httpd_resp_send(req, html, n);
     return ESP_OK;
 }
-
 
 // Login processing handler
 esp_err_t login_post_handler(httpd_req_t *req) {
@@ -319,7 +351,8 @@ esp_err_t login_post_handler(httpd_req_t *req) {
 
     while (remaining > 0) {
         // Read the data for the request
-        if ((ret = httpd_req_recv(req, buf, MIN(remaining, sizeof(buf)))) <= 0) {
+        if ((ret = httpd_req_recv(req, buf, MIN(remaining, sizeof(buf)))) <=
+            0) {
             if (ret == HTTPD_SOCK_ERR_TIMEOUT) {
                 // Handle timeout
                 httpd_resp_send_408(req);
@@ -340,7 +373,8 @@ esp_err_t login_post_handler(httpd_req_t *req) {
         // expect two fixed users
 
         // Use sscanf to parse the string
-        if (sscanf(buf, "username=%72[^&]&password=%72s", inusername, inpassword) == 2) {
+        if (sscanf(buf, "username=%72[^&]&password=%72s", inusername,
+                   inpassword) == 2) {
             ESP_LOGI(TAG, "Uzivatelske jmeno: %s", inusername);
             // ESP_LOGI(TAG, "Password: %s", inpassword);
         } else {
@@ -349,13 +383,17 @@ esp_err_t login_post_handler(httpd_req_t *req) {
 
         // verify if username/password matches the given users
         // user id 0 ?
-        if ((strcmp(users[0].username, inusername) == 0) && (strcmp(users[0].password, inpassword) == 0)) {
-            ESP_LOGI(TAG, "Uspesne overeni hesla pro uzivatele %s", users[0].username);
+        if ((strcmp(users[0].username, inusername) == 0) &&
+            (strcmp(users[0].password, inpassword) == 0)) {
+            ESP_LOGI(TAG, "Uspesne overeni hesla pro uzivatele %s",
+                     users[0].username);
             current_user_id = 0;
         }
         // user id 1 ?
-        else if ((strcmp(users[1].username, inusername) == 0) && (strcmp(users[1].password, inpassword) == 0)) {
-            ESP_LOGI(TAG, "Uspesne overeni hesla pro uzivatele %s", users[1].username);
+        else if ((strcmp(users[1].username, inusername) == 0) &&
+                 (strcmp(users[1].password, inpassword) == 0)) {
+            ESP_LOGI(TAG, "Uspesne overeni hesla pro uzivatele %s",
+                     users[1].username);
             current_user_id = 1;
         } else {
             // no verification, logoff
@@ -378,24 +416,25 @@ esp_err_t login_post_handler(httpd_req_t *req) {
     } else {
         // Unsuccessfull login
         char resp_str[512];
-        size_t n = snprintf(resp_str, sizeof(resp_str),
-                            "<!DOCTYPE html>"
-                            "<html lang=\"cs\">"
-                            "<head>"
-                            "<title>Automato</title>"
-                            "<meta charset=\"UTF-8\">"
-                            "<meta http-equiv=\"refresh\" content=\"2;url=/login\">"
-                            "<title>Automato redir</title>"
-                            "</head>"
-                            "<style>"
-                            "body {"
-                            "  font-family: Arial, sans-serif;"
-                            "}"
-                            "</style>"
-                            "<body><h2>Automato</h2>%s"
-                            "</body>"
-                            "</html>",
-                            t("Neúspěšné přihlášení"));
+        size_t n =
+            snprintf(resp_str, sizeof(resp_str),
+                     "<!DOCTYPE html>"
+                     "<html lang=\"cs\">"
+                     "<head>"
+                     "<title>Automato</title>"
+                     "<meta charset=\"UTF-8\">"
+                     "<meta http-equiv=\"refresh\" content=\"2;url=/login\">"
+                     "<title>Automato redir</title>"
+                     "</head>"
+                     "<style>"
+                     "body {"
+                     "  font-family: Arial, sans-serif;"
+                     "}"
+                     "</style>"
+                     "<body><h2>Automato</h2>%s"
+                     "</body>"
+                     "</html>",
+                     t("Neúspěšné přihlášení"));
 
         // Send response
         httpd_resp_send(req, resp_str, n);
@@ -404,19 +443,20 @@ esp_err_t login_post_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-
 // handler for catching nets logo
 esp_err_t logo_image_get_handler(httpd_req_t *req) {
-    httpd_resp_set_type(req,
-                        "image/png");  // Adjust the MIME type if your image format is different
+    httpd_resp_set_type(
+        req,
+        "image/png");  // Adjust the MIME type if your image format is different
     httpd_resp_send(req, (const char *)logo_image_data, logo_image_data_len);
     return ESP_OK;
 }
 
-
 // Logout handler
 esp_err_t logout_handler(httpd_req_t *req) {
-    httpd_resp_set_hdr(req, "Set-Cookie", "auth=; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
+    httpd_resp_set_hdr(
+        req, "Set-Cookie",
+        "auth=; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
 
     wifiapst = WIFIAPST_NORMAL;
 
@@ -427,7 +467,6 @@ esp_err_t logout_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-
 // favicon handler
 esp_err_t favicon_get_handler(httpd_req_t *req) {
     httpd_resp_set_type(req, "image/x-icon");
@@ -435,14 +474,12 @@ esp_err_t favicon_get_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-
-
 /* ==========================  SET‑UP (GET)  ========================= */
 esp_err_t setup_get_handler(httpd_req_t *req) {
     /* ---------- auth -------------------------------------------------- */
     char cookie_value[32];
-    if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) || strcmp(cookie_value, "1") != 0 ||
-        current_user_id == -1) {
+    if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) ||
+        strcmp(cookie_value, "1") != 0 || current_user_id == -1) {
         httpd_resp_set_status(req, "307 Temporary Redirect");
         httpd_resp_set_hdr(req, "Location", "/login");
         httpd_resp_send(req, NULL, 0);
@@ -475,7 +512,8 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
 
           /* ---------- CSS --------------------------------------------- */
           "<style>"
-          "body{font-family:Helvetica,Arial,sans-serif;margin:0;background:#fafafa}"
+          "body{font-family:Arial,sans-serif;margin:0;background:#"
+          "fafafa}"
           /* common wrapper */
           ".wrapper{"
           "    margin:20px 0 0 20px;"
@@ -493,7 +531,8 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
           ".logo img{height:38px;width:auto}"
           ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
-          ".headbar{display:flex;justify-content:space-between;align-items:center;height:46px;padding:0 8px;}"
+          ".headbar{display:flex;justify-content:space-between;align-items:"
+          "center;height:46px;padding:0 8px;}"
           "</style>"
           "</head><body>"
           /* ---------- page header with logo (top‑left) ----------------- */
@@ -506,7 +545,7 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
           "</div>"
           "<div class='wrapper'>"
           "<h2>");
-    chunk(req, t("Nastavení podmínek"));
+    chunk(req, t("Nastavení podmínek a akcí"));
     chunk(req,
           "</h2>"
           "<table id='condTable'>"
@@ -540,72 +579,167 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
     chunk(req,
           "</button>"
           "<br style='clear:both'>"
-          "<script>");
+          "<script>\n");
+    /* ---------- <script> ------------------------------------------------ */
+    chunk(req, "const LEFTSIDES = [");
+    for (int i = 0; DEF_LEFTSIDES[i][0]; ++i) {
+        if (i) chunk(req, ",");
+        chunk(req, "\"");
+        chunk(req, DEF_LEFTSIDES[i]);
+        chunk(req, "\"");
+    }
+    chunk(req, "];\nconst OPERATORS = [");
+    for (int i = 0; DEF_OPERATORS[i][0]; ++i) {
+        if (i) chunk(req, ",");
+        chunk(req, "\"");
+        chunk(req, DEF_OPERATORS[i]);
+        chunk(req, "\"");
+    }
+    chunk(req, "];\nconst ACTIONS = [");
+    for (int i = 0; DEF_ACTIONS[i][0]; ++i) {
+        if (i) chunk(req, ",");
+        chunk(req, "\"");
+        chunk(req, DEF_ACTIONS[i]);
+        chunk(req, "\"");
+    }
+    chunk(req, "];\n\n");
 
-    /* ------- embed the JSON ------- */
+    // helper for MAXNUMCONDITONS
+    char tmp[8];
+    sprintf(tmp, "%d", MAXNUMCONDITONS);
+    chunk(req, "const MAX_ROWS = ");
+    chunk(req, tmp); /* e.g. “10”                       */
+    chunk(req, ";\n\n");
+
     chunk(req, "const initData = ");
     chunk(req, json ? json : "[]");
-    chunk(req, ";\n");
-
-    /* ------- tiny helper JS ------- */
-    /* ---- JavaScript helper block in setup_get_handler() ---------------- */
     chunk(req,
-          "const tbody = document.querySelector('#condTable tbody');\n"
+          ";\n\n"
+          "/* DOM helpers ------------------------------------------------*/\n"
+          "const tbody = document.querySelector('#condTable tbody');\n\n"
           "function buildRow(d){\n"
           "  const tr = document.createElement('tr');\n"
-          "  tr.innerHTML = `"
-          "<td><input type='checkbox' ${d.enabled ? 'checked' : ''}></td>"
-          "<td><input class='wide'  value='${d.left  ?? \"\"}'></td>"
-          "<td><input style='width:40px' value='${d.op    ?? \"\"}'></td>"
-          "<td><input class='wide'  value='${d.right ?? \"\"}'></td>"
-          "<td><input class='wide'  value='${d.action?? \"\"}'></td>"
-          "<td><button class='del'>&#128465;</button></td>`;\n"
-          "  tbody.appendChild(tr);\n"
-          "}\n"
-          "function render(){ tbody.innerHTML=''; initData.forEach(buildRow); }\n"
-          "render();\n"
+          "  tr.innerHTML = `\n"
+          "    <td><input type='checkbox' ${d.enabled?\"checked\":\"\"}></td>\n"
+          "    <td>\n"
+          "      <select class='wide'>\n"
+          "        ${LEFTSIDES.map(v=>`<option value='${v}' "
+          "${v===d.left?\"selected\":\"\"}>${v}</option>`).join('')}\n"
+          "      </select>\n"
+          "    </td>\n"
+          "    <td>\n"
+          "      <select style='width:60px'>\n"
+          "        ${OPERATORS.map(v=>`<option value='${v}' "
+          "${v===d.op?\"selected\":\"\"}>${v}</option>`).join('')}\n"
+          "      </select>\n"
+          "    </td>\n"
+          "    <td><input type='text' class='wide' "
+          "value='${d.right??\"\"}'></td>\n"
+          "    <td>\n"
+          "      <select class='wide'>\n"
+          "        ${ACTIONS.map(v=>`<option value='${v}' "
+          "${v===d.action?\"selected\":\"\"}>${v}</option>`).join('')}\n"
+          "      </select>\n"
+          "    </td>\n");
+    chunk(
+        req,
+        "    <td><button class='del'>&#128465;</button></td>`;\n"
+        "  tbody.appendChild(tr);\n"
+        "}\n\n"
+        "function render(){ tbody.innerHTML=''; initData.forEach(buildRow); }\n"
+        "render();\n"
+        "\n"
+        "tbody.addEventListener('click', e => {\n"
+        "  const btn = e.target.closest('button.del');\n"
+        "  if (!btn) return;                          /* not the trash-can */\n"
+        "  const row = btn.closest('tr');\n"
+        "  const idx = [...tbody.children].indexOf(row);\n"
+        "  if (idx !== -1) { initData.splice(idx, 1); render(); }\n"
+        "});\n");
+
+    chunk(req, "render();\n\n");
+
+    chunk(req,
           "document.getElementById('addBtn').onclick = () => {\n"
-          "  initData.push({ enabled: 1, left: \"\", op: \"\", right: \"\", action: \"\" });\n"
-          "  render();\n"
-          "};\n"
-          "tbody.addEventListener('click', e => {\n"
-          "  if (e.target.classList.contains('del')) {\n"
-          "    const idx = [...tbody.children].indexOf(e.target.closest('tr'));\n"
-          "    initData.splice(idx, 1); render();\n"
+          "  if (initData.length >= MAX_ROWS) {\n"
+          "      alert('");
+    chunk(req, t("Maximální počet podmínek"));
+    chunk(req, " '+MAX_ROWS+' ");
+    chunk(req, t("byl dosažen"));
+    chunk(req,
+          "');\n"
+          "      return;               /* refuse to add more */\n"
           "  }\n"
-          "});\n"
+          "  initData.push({ enabled:1,\n"
+          "                  left:   LEFTSIDES[0]||'',\n"
+          "                  op:     OPERATORS[0]||'',\n"
+          "                  right:  '0',\n"
+          "                  action: ACTIONS[0]||'' });\n"
+          "  render();\n"
+          "};\n");
+
+    chunk(req,
           "document.getElementById('saveBtn').onclick = async () => {\n"
-          "  const rows = [...tbody.children];\n"
-          "  const out = rows.map(r => {\n"
-          "    const inp = r.querySelectorAll('input');\n"
+          "  const out = [...tbody.children].map(r => {\n"
+          "    const ck   = r.querySelector('input[type=checkbox]');\n"
+          "    const sels = r.querySelectorAll('select');   /* 0-left 1-op "
+          "2-action */\n"
+          "    const txt  = r.querySelector('input[type=text]');\n"
           "    return {\n"
-          "      enabled: inp[0].checked ? 1 : 0,\n"
-          "      left:    inp[1].value.trim(),\n"
-          "      op:      inp[2].value.trim(),\n"
-          "      right:   inp[3].value.trim(),\n"
-          "      action:  inp[4].value.trim()\n"
+          "      enabled : ck.checked ? 1 : 0,\n"
+          "      left    : sels[0].value,\n"
+          "      op      : sels[1].value,\n"
+          "      right   : txt.value.trim(),\n"
+          "      action  : sels[2].value\n"
           "    };\n"
           "  }).filter(r => r.left !== '' || r.action !== '');\n"
+          "\n"
+          "  /* -------- client-side check of “Pravá strana” -------- */\n"
+          "  const bad = out.find(r => r.right.length > ");
+    chunk(req, RIGHTEVALSIZE);
+    chunk(req,
+          " ||\n"
+          "                           !/^[0-9+\\-*/.]*$/.test(r.right));\n"
+          "  if (bad) {\n"
+          "    alert(bad.right.length > ");
+    chunk(req, RIGHTEVALSIZE);
+    chunk(req,
+          "\n"
+          "          ? '");
+    chunk(req, t("Maximální počet znaků na pravé straně je "));
+    chunk(req, RIGHTEVALSIZE);
+    chunk(req,
+          "'\n"
+          "          : '");
+    chunk(req, t("Pravá strana smí obsahovat pouze čísla a znaky + - * / ."));
+    chunk(req,
+          "');\n"
+          "    return;\n"
+          "  }\n"
+          "\n"
           "  try {\n"
           "    const resp = await fetch('/setup', {\n"
-          "      method: 'POST',\n"
-          "      headers: { 'Content-Type': 'application/json' },\n"
-          "      body: JSON.stringify(out)\n"
+          "      method  : 'POST',\n"
+          "      headers : { 'Content-Type': 'application/json' },\n"
+          "      body    : JSON.stringify(out)\n"
           "    });\n"
-          "    if (resp.ok) alert('");
+          "    alert(resp.ok ? '");
     chunk(req, t("Uloženo"));
-    chunk(req, "!'); else alert('");
+    chunk(req, "' : '");
     chunk(req, t("Chyba při ukládání"));
     chunk(req,
           "');\n"
-          "  } catch (ex) { alert('");
+          "  } catch(ex) {\n"
+          "    alert('");
     chunk(req, t("Chyba"));
     chunk(req,
-          ": ' + ex); }\n"
+          " : ' + ex);\n"
+          "  }\n"
           "};\n");
 
+    chunk(req, "</script>\n");
 
-    chunk(req, "</script></div></body></html>");
+    chunk(req, "</div></body></html>");
 
     free(json); /* keep this line */
     return httpd_resp_send_chunk(req, NULL, 0);
@@ -621,8 +755,8 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
 esp_err_t setup_post_handler(httpd_req_t *req) {
     /* ---------- auth -------------------------------------------------- */
     char cookie_value[32];
-    if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) || strcmp(cookie_value, "1") != 0 ||
-        current_user_id == -1) {
+    if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) ||
+        strcmp(cookie_value, "1") != 0 || current_user_id == -1) {
         httpd_resp_set_status(req, "307 Temporary Redirect");
         httpd_resp_set_hdr(req, "Location", "/login");
         httpd_resp_send(req, NULL, 0);
@@ -647,28 +781,36 @@ esp_err_t setup_post_handler(httpd_req_t *req) {
     cJSON *it = NULL;
     cJSON_ArrayForEach(it, root) {
         if (idx >= MAXNUMCONDITONS - 1) break; /* leave last as terminator */
-        conditions[idx].active = cJSON_GetObjectItem(it, "enabled")->valueint ? 1 : 0;
-        strncpy(conditions[idx].left, cJSON_GetObjectItem(it, "left")->valuestring ?: "",
+        conditions[idx].active =
+            cJSON_GetObjectItem(it, "enabled")->valueint ? 1 : 0;
+        strncpy(conditions[idx].left,
+                cJSON_GetObjectItem(it, "left")->valuestring ?: "",
                 sizeof(conditions[idx].left) - 1);
-        strncpy(conditions[idx].operator, cJSON_GetObjectItem(it, "op")->valuestring ?: "",
+        strncpy(conditions[idx].operator,
+                cJSON_GetObjectItem(it, "op")->valuestring ?: "",
                 sizeof(conditions[idx].operator) - 1);
-        strncpy(conditions[idx].right, cJSON_GetObjectItem(it, "right")->valuestring ?: "",
+        strncpy(conditions[idx].right,
+                cJSON_GetObjectItem(it, "right")->valuestring ?: "",
                 sizeof(conditions[idx].right) - 1);
-        strncpy(conditions[idx].action, cJSON_GetObjectItem(it, "action")->valuestring ?: "",
+        strncpy(conditions[idx].action,
+                cJSON_GetObjectItem(it, "action")->valuestring ?: "",
                 sizeof(conditions[idx].action) - 1);
         ++idx;
     }
     /* mark the new end */
     conditions[idx].active = 1;
-    conditions[idx].left[0] = conditions[idx].operator[0] = conditions[idx].right[0] = conditions[idx].action[0] = 0;
+    conditions[idx].left[0] = conditions[idx]
+                                  .operator[0] = conditions[idx]
+                                  .right[0] = conditions[idx]
+                                  .action[0] = 0;
 
     cJSON_Delete(root);
 
     /* ---------- PERSIST TO NVS -------------------------------------- */
-    {                                                                  /* <- keep the scope small       */
-        esp_err_t err = nvs_set_blob(nvs_handle_storage, "conditions", /* key                     */
-                                     conditions,                       /* data                    */
-                                     sizeof(conditions));              /* size                    */
+    { /* <- keep the scope small       */
+        esp_err_t err = nvs_set_blob(nvs_handle_storage, "conditions", /* key */
+                                     conditions, /* data                    */
+                                     sizeof(conditions)); /* size */
 
         if (err == ESP_OK) {
             err = nvs_commit(nvs_handle_storage);
@@ -676,7 +818,8 @@ esp_err_t setup_post_handler(httpd_req_t *req) {
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "Saving conditions to NVS failed (%d)", err);
         } else {
-            ESP_LOGI(TAG, "Conditions written to NVS (%zu B)", sizeof(conditions));
+            ESP_LOGI(TAG, "Conditions written to NVS (%zu B)",
+                     sizeof(conditions));
         }
     }
     /* ---------------------------------------------------------------- */
@@ -689,8 +832,8 @@ esp_err_t setup_post_handler(httpd_req_t *req) {
 esp_err_t settings_get_handler(httpd_req_t *req) {
     /* ---------- auth -------------------------------------------------- */
     char cookie_value[32];
-    if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) || strcmp(cookie_value, "1") != 0 ||
-        current_user_id == -1) {
+    if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) ||
+        strcmp(cookie_value, "1") != 0 || current_user_id == -1) {
         httpd_resp_set_status(req, "307 Temporary Redirect");
         httpd_resp_set_hdr(req, "Location", "/login");
         httpd_resp_send(req, NULL, 0);
@@ -709,7 +852,8 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
     chunk(req,
           /* ---------- CSS --------------------------------------------- */
           "<style>"
-          "body{font-family:Helvetica,Arial,sans-serif;margin:0;background:#fafafa}"
+          "body{font-family:Arial,sans-serif;margin:0;background:#"
+          "fafafa}"
           /* common wrapper */
           ".wrapper{"
           "    margin:20px 0 0 20px;"
@@ -727,7 +871,8 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
           ".logo img{height:38px;width:auto}"
           ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
-          ".headbar{display:flex;justify-content:space-between;align-items:center;height:46px;padding:0 8px;}"
+          ".headbar{display:flex;justify-content:space-between;align-items:"
+          "center;height:46px;padding:0 8px;}"
           "</style>");
 
     chunk(req, "</head><body>");
@@ -766,11 +911,14 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
 
     // password fields
     chunk(req, t("Nové heslo uživatele automato:"));
-    chunk(req, "&nbsp;<input type='password' name='user_pass' value=''><br><br>");
+    chunk(req,
+          "&nbsp;<input type='password' name='user_pass' value=''><br><br>");
     // servis only if service user
     if (current_user_id == 1) {
         chunk(req, t("Nové heslo uživatele servis:"));
-        chunk(req, "&nbsp;<input type='password' name='serv_pass' value=''><br><br>");
+        chunk(
+            req,
+            "&nbsp;<input type='password' name='serv_pass' value=''><br><br>");
     } else {
         // hidden
         chunk(req, "<input type='hidden' name='serv_pass' value=''>");
@@ -786,13 +934,20 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
           " style='float:right;margin-left:8px;'>");
     chunk(req, t("Zpět"));
     chunk(req, "</button>");
-    chunk(req, "<br><br><br><br>");
-    chunk(req, t("Pozor, stiskem tlačítka níže změníte všechna nastavení na výchozí a restartujete zařízení (nutno znovu připojit na wifi)"));
-    chunk(req, "<br>");
-    // Make sure we give it a name and value:
-    chunk(req, "<button type='submit' name='wipe' value='1'>");
-    chunk(req, t("Výchozí nastavení (!)"));
-    chunk(req, "</button>");
+    chunk(req, "<br><br>");
+    // is "servis" - allow nvs wipe out
+    if (current_user_id == 1) {
+        chunk(req, "<br><br>");
+        chunk(req, t("Pozor, stiskem tlačítka níže změníte všechna nastavení "
+                     "na výchozí "
+                     "a restartujete zařízení (nutno znovu připojit na wifi)"));
+        chunk(req, "<br>");
+        // Make sure we give it a name and value:
+        chunk(req, "<button type='submit' name='wipe' value='1'>");
+        chunk(req, t("Výchozí nastavení (!)"));
+        chunk(req, "</button>");
+    }
+    //
     chunk(req, "</form></div>");
 
     /* ---------- log‑off button --------------------------------------- */
@@ -807,14 +962,13 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
 esp_err_t settings_post_handler(httpd_req_t *req) {
     /* ---------- auth -------------------------------------------------- */
     char cookie_value[32];
-    if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) || strcmp(cookie_value, "1") != 0 ||
-        current_user_id == -1) {
+    if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) ||
+        strcmp(cookie_value, "1") != 0 || current_user_id == -1) {
         httpd_resp_set_status(req, "307 Temporary Redirect");
         httpd_resp_set_hdr(req, "Location", "/login");
         httpd_resp_send(req, NULL, 0);
         return ESP_OK;
     }
-
 
     // Read the form body
     char buf[256];  // Input buffer for form data
@@ -851,11 +1005,18 @@ esp_err_t settings_post_handler(httpd_req_t *req) {
     // 3) If they hit the wipe-factory-defaults button, do that *first*
     if (wipe) {
         httpd_resp_set_type(req, "text/html; charset=UTF-8");
-        httpd_resp_send(req, t("<html><body>Výchozí nastavení, restartuji zařízení (po restartu připojte na WiFi)</body></html>"),
+        httpd_resp_send(req,
+                        t("<html><body>Výchozí nastavení, restartuji zařízení "
+                          "(po restartu připojte na WiFi)</body></html>"),
                         HTTPD_RESP_USE_STRLEN);
         vTaskDelay(pdMS_TO_TICKS(100));
-        nvs_flash_erase();
+        ESP_LOGW(TAG, "Factory reset: wiping entire NVS partition");
+
+        nvs_flash_deinit();                  // close all open handles
+        ESP_ERROR_CHECK(nvs_flash_erase());  // <-- one call erases everything
+        // ESP_ERROR_CHECK(nvs_flash_init());   // re-initialise for fresh use
         esp_restart();
+
         return ESP_OK;
     }
 
@@ -890,7 +1051,6 @@ esp_err_t settings_post_handler(httpd_req_t *req) {
         } else {
             ESP_LOGI(TAG, "Saved new servis password to NVS");
         }
-        
     }
 
     // 5) Redirect back
@@ -899,8 +1059,6 @@ esp_err_t settings_post_handler(httpd_req_t *req) {
     httpd_resp_send(req, NULL, 0);
     return ESP_OK;
 }
-
-
 
 // Function to start the web server
 httpd_handle_t start_webserver(void) {
@@ -913,48 +1071,74 @@ httpd_handle_t start_webserver(void) {
     config.task_priority = configMAX_PRIORITIES - 1;  // Set to desired priority
 
     if (httpd_start(&server, &config) == ESP_OK) {
-        httpd_uri_t root_uri = {.uri = "/", .method = HTTP_GET, .handler = root_get_handler, .user_ctx = NULL};
+        httpd_uri_t root_uri = {.uri = "/",
+                                .method = HTTP_GET,
+                                .handler = root_get_handler,
+                                .user_ctx = NULL};
         httpd_register_uri_handler(server, &root_uri);
 
         /* existing GET handler keeps same URI */
-        httpd_uri_t setup_uri_get = {
-            .uri = "/setup", .method = HTTP_GET, .handler = setup_get_handler, .user_ctx = NULL};
+        httpd_uri_t setup_uri_get = {.uri = "/setup",
+                                     .method = HTTP_GET,
+                                     .handler = setup_get_handler,
+                                     .user_ctx = NULL};
         httpd_register_uri_handler(server, &setup_uri_get);
 
         /* NEW: POST handler that saves the rules */
-        httpd_uri_t setup_uri_post = {
-            .uri = "/setup", .method = HTTP_POST, .handler = setup_post_handler, .user_ctx = NULL};
+        httpd_uri_t setup_uri_post = {.uri = "/setup",
+                                      .method = HTTP_POST,
+                                      .handler = setup_post_handler,
+                                      .user_ctx = NULL};
         httpd_register_uri_handler(server, &setup_uri_post);
 
-        httpd_uri_t data_uri = {.uri = "/data", .method = HTTP_GET, .handler = data_get_handler, .user_ctx = NULL};
+        httpd_uri_t data_uri = {.uri = "/data",
+                                .method = HTTP_GET,
+                                .handler = data_get_handler,
+                                .user_ctx = NULL};
         httpd_register_uri_handler(server, &data_uri);
 
-        httpd_uri_t login_uri = {.uri = "/login", .method = HTTP_GET, .handler = login_get_handler, .user_ctx = NULL};
+        httpd_uri_t login_uri = {.uri = "/login",
+                                 .method = HTTP_GET,
+                                 .handler = login_get_handler,
+                                 .user_ctx = NULL};
         httpd_register_uri_handler(server, &login_uri);
 
-        httpd_uri_t login_post_uri = {
-            .uri = "/login", .method = HTTP_POST, .handler = login_post_handler, .user_ctx = NULL};
+        httpd_uri_t login_post_uri = {.uri = "/login",
+                                      .method = HTTP_POST,
+                                      .handler = login_post_handler,
+                                      .user_ctx = NULL};
         httpd_register_uri_handler(server, &login_post_uri);
 
-        httpd_uri_t logout_uri = {.uri = "/logout", .method = HTTP_GET, .handler = logout_handler, .user_ctx = NULL};
+        httpd_uri_t logout_uri = {.uri = "/logout",
+                                  .method = HTTP_GET,
+                                  .handler = logout_handler,
+                                  .user_ctx = NULL};
         httpd_register_uri_handler(server, &logout_uri);
 
-        httpd_uri_t image_uri = {
-            .uri = "/logo", .method = HTTP_GET, .handler = logo_image_get_handler, .user_ctx = NULL};
+        httpd_uri_t image_uri = {.uri = "/logo",
+                                 .method = HTTP_GET,
+                                 .handler = logo_image_get_handler,
+                                 .user_ctx = NULL};
         httpd_register_uri_handler(server, &image_uri);
 
         // favicon handler
-        httpd_uri_t favicon_uri = {
-            .uri = "/favicon.ico", .method = HTTP_GET, .handler = favicon_get_handler, .user_ctx = NULL};
+        httpd_uri_t favicon_uri = {.uri = "/favicon.ico",
+                                   .method = HTTP_GET,
+                                   .handler = favicon_get_handler,
+                                   .user_ctx = NULL};
         httpd_register_uri_handler(server, &favicon_uri);
 
         // after registering settings
-        httpd_uri_t settings_uri_get = {
-            .uri = "/settings", .method = HTTP_GET, .handler = settings_get_handler, .user_ctx = NULL};
+        httpd_uri_t settings_uri_get = {.uri = "/settings",
+                                        .method = HTTP_GET,
+                                        .handler = settings_get_handler,
+                                        .user_ctx = NULL};
         httpd_register_uri_handler(server, &settings_uri_get);
 
-        httpd_uri_t settings_uri_post = {
-            .uri = "/settings", .method = HTTP_POST, .handler = settings_post_handler, .user_ctx = NULL};
+        httpd_uri_t settings_uri_post = {.uri = "/settings",
+                                         .method = HTTP_POST,
+                                         .handler = settings_post_handler,
+                                         .user_ctx = NULL};
         httpd_register_uri_handler(server, &settings_uri_post);
     }
     return server;
