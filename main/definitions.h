@@ -8,7 +8,8 @@
 
 // lowest line 1
 char lowline1[] = "automato 1.0. Úpravy funkčnosti při změně formátu vstupních dat OTE nebo jiných změnách podmínek jsou řešeny v rámci zakoupené podpory.";
-char lowline2[100] = "Kontakt: Ota Pekař, pekar@nescom.com, +420602328542";
+#define LOWLINE2_DEFAULT "Kontakt: Ota Pekař, pekar@nescom.com, +420602328542"
+char lowline2[100] = LOWLINE2_DEFAULT;
 
 // Left sides list
 char *DEF_LEFTSIDES[]={

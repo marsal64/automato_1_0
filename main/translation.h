@@ -20,7 +20,10 @@ typedef struct {
 
 static const translation cz_en[] = {
     {"Vypnuto", "Off"},
-    {"automato 1.0. Úpravy funkčnosti při změně formátu vstupních dat OTE nebo jiných změnách podmínek jsou řešeny v rámci zakoupené podpory.", "automato 1.0. Functional changes based on the change of the input conditions are covered by the purchased support."},
+    {"automato 1.0. Úpravy funkčnosti při změně formátu vstupních dat OTE nebo jiných změnách podmínek jsou řešeny v "
+     "rámci zakoupené podpory.",
+     "automato 1.0. Functional changes based on the change of the input conditions are covered by the purchased "
+     "support."},
     {"Zapnuto", "On"},
     {"Odhlásit", "Logoff"},
     {"Přihlásit", "Login"},
@@ -74,6 +77,7 @@ static const translation cz_en[] = {
      "again."},
     {"Změny potvrďte stiskem tlačítka 'Potvrzení'", "Confirm any change pressing the button 'Confirm'"},
     {"Zpět", "Back"},
+    {"Podmínky akcí", "Actions condition"},
     {"Uživatelská nastavení", "User settings"},
     {"Akce&nbsp;&rarr;&nbsp;naposledy aktivováno", "Action&nbsp;&rarr;&nbsp;last activation timestamp"},
     {"<html><body>Výchozí nastavení, restartuji zařízení (po restartu připojte "
@@ -87,7 +91,7 @@ static const translation cz_en[] = {
     {"Hodnota (poplatek obchodníkovi)", "Value (delivery fee)"},
     {MAIN_TITLE, MAIN_TITLE},
     {"Akce → naposledy aktivováno", "Action → activated last time"},
-
+    {"Řádek kontaktu:", "Contact row:"},
     {"Popisy akcí", "Actions description"},
     {"Maximální počet znaků na pravé straně je ", "Right side: max characters allowed is "},
     {"Pravá strana smí obsahovat pouze čísla a znaky + - * / . (používá se desetinná tečka, nikoli čárka)",

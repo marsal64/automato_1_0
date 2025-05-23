@@ -1750,6 +1750,16 @@ void app_main(void) {
     // read or refreshs action descriptions  from NVS
     ESP_ERROR_CHECK(load_or_init_actions());
 
+    // load lowline2 from NVS (or write default on first boot)
+    size_t szl = sizeof(lowline2);
+    esp_err_t e = nvs_get_str(nvs_handle_storage, "lowline2", lowline2, &szl);
+    if (e == ESP_ERR_NVS_NOT_FOUND) {
+        // first boot: write the compile‐time default into NVS
+        strncpy(lowline2, "Kontakt: Ota Pekař, pekar@nescom.com, +420602328542", sizeof(lowline2)-1);
+        nvs_set_str(nvs_handle_storage, "lowline2", lowline2);
+        nvs_commit(nvs_handle_storage);
+    }
+
 
     // start webserver
     start_webserver();

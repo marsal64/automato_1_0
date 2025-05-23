@@ -145,9 +145,11 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "    }"
 
           "  .footer {"
-          "    font-size: 50%;"
+          "    font-size: 75%;"
           "    padding-left: 10px;"
           "  }"
+
+          "  .hour-range { color: #777; }"
 
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
           ".logo img{height:38px;width:auto}"
@@ -173,10 +175,10 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "const hh    = parseInt(k.slice(8,10), 10);"
           "const phh   = (hh + 23) % 24;"
           "const date  = `${day}.${month}.${year}`;"
-          "const range = `${phh}-${hh.toString().padStart(2,'0')}`;"
+          "const range = `${phh.toString().padStart(2,'0')}-${hh.toString().padStart(2,'0')}`;"
 
           "li.innerHTML = (p.key === d.now_key ? '<b>' : '')"
-          "            + `${date} ${range} : ${p.val}€`"
+          "            + `${date} <span class='hour-range'>${range}</span> : ${p.val}€`"
           "           + (p.key === d.now_key ? '</b>' : '');"
 
           "        ulp.appendChild(li);"
@@ -271,7 +273,8 @@ esp_err_t root_get_handler(httpd_req_t *req) {
         char mon[3] = {k[4], k[5], '\0'};
         char year[5] = {k[0], k[1], k[2], k[3], '\0'};
         char line[128];
-        snprintf(line, sizeof(line), "<li>%s.%s.%s %d-%02d : %s€</li>", day, mon, year, phh, hh, prices[i].val);
+        snprintf(line, sizeof(line), "<li>%s.%s.%s <span class='hour-range'>%02d-%02d</span> : %s€</li>", day, mon,
+                 year, phh, hh, prices[i].val);
 
         if (!strcmp(k, now_key)) {
             chunk(req, "<b>");
@@ -1239,6 +1242,20 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
         chunk(req, "<input type='hidden' name='serv_pass' value=''>");
     }
 
+    // if user id is 1 (servis), allow to edit Line2
+    if (current_user_id == 1) {
+        chunk(req, "<br><br><label>");
+        chunk(req, t("Řádek kontaktu:"));
+        chunk(req, "</label>&nbsp;");
+        // textarea or single‐line input:
+        chunk(req, "<input type='text' name='lowline2' value='");
+        chunk(req, lowline2);
+        chunk(req, "' style='width:100%;'><br><br>");
+    } else {
+        // hidden
+        chunk(req, "<input type='hidden' name='lowline2' value=''>");
+    }
+
     // buttons
     chunk(req,
           "<button id='backBtn' type='button'"
@@ -1252,10 +1269,10 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
     chunk(req, "</button>");
 
 
-    chunk(req, "<br><br>");
+
     // is "servis" - allow nvs wipe out
     if (current_user_id == 1) {
-        chunk(req, "<br><br>");
+        chunk(req, "<br><br><br><br>");
         chunk(req, t("Pozor, stiskem tlačítka níže změníte všechna nastavení "
                      "na výchozí "
                      "a restartujete zařízení (nutno znovu připojit na wifi)"));
@@ -1265,6 +1282,7 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
         chunk(req, t("Výchozí nastavení (!)"));
         chunk(req, "</button>");
     }
+
     //
     chunk(req, "</form></div>");
 
@@ -1367,6 +1385,30 @@ esp_err_t settings_post_handler(httpd_req_t *req) {
             ESP_LOGE(TAG, "nvs_commit failed for pwd_servis (%d)", err);
         } else {
             ESP_LOGI(TAG, "Saved new servis password to NVS");
+        }
+    }
+
+    // parse lowline2 if servis
+    if (current_user_id == 1) {
+        char *p = strstr(buf, "lowline2=");
+        if (p) {
+            // simple URL‐decoded slice (you may want a proper decoder)
+            char *val = p + strlen("lowline2=");
+            // ampersand ends it
+            char *end = strchr(val, '&');
+            size_t len = end ? (size_t)(end - val) : strlen(val);
+            if (len > sizeof(lowline2) - 1) len = sizeof(lowline2) - 1;
+            // crude URL-decode of spaces/+ only:
+            for (size_t i = 0, j = 0; i < len; ++i) {
+                if (val[i] == '+')
+                    lowline2[j++] = ' ';
+                else
+                    lowline2[j++] = val[i];
+            }
+            lowline2[len] = '\0';
+            // persist
+            nvs_set_str(nvs_handle_storage, "lowline2", lowline2);
+            nvs_commit(nvs_handle_storage);
         }
     }
 
