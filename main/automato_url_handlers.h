@@ -143,6 +143,11 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "    .prices b {"
           "      color: #c00;"
           "    }"
+
+          ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
+          ".logo img{height:38px;width:auto}"
+          ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
+
           "  </style>");
 
     chunk(req,
@@ -436,10 +441,15 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "    .prices b {"
           "      color: #c00;"
           "    }"
+
+          ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
+          ".logo img{height:38px;width:auto}"
+          ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
+
           "  </style>");
     chunk(req,
           "</head><body>"
-          "<div class='logo'><img src='/logo' alt='automato'></div>"
+          "<div class='logo'><img src='/logo' alt='automato'><span>automato</span></div>"
           "<div class='wrapper'><h2>");
     chunk(req, t("Popisy akcí"));
     chunk(req,
@@ -584,7 +594,7 @@ esp_err_t login_get_handler(httpd_req_t *req) {
                         "  <meta charset=\"UTF-8\">"
                         "  <title>%s</title>"
                         "  <style>"
-                        "html { font-size: 12px; }"
+                        "html { font-size: 10px; }"
                         "    body  { font-family:Arial,sans-serif; display:flex; "
                         "justify-content:center; align-items:center; height:100vh; margin:0; }"
                         "    form  { border:1px solid #ddd; padding:20px; box-shadow:2px 2px "
@@ -688,7 +698,7 @@ esp_err_t login_post_handler(httpd_req_t *req) {
                             "<title>Automato redir</title>"
                             "</head>"
                             "<style>"
-                            "html { font-size: 12px; }"
+                            "html { font-size: 10px; }"
                             "body {"
                             "  font-family: Arial, sans-serif;"
                             "}"
@@ -771,7 +781,7 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
 
           /* ---------- CSS --------------------------------------------- */
           "<style>"
-          "html { font-size: 12px; }"
+          "html { font-size: 10px; }"
           "body{font-family:Arial,sans-serif;margin:0;background:#"
           "fafafa}"
           /* common wrapper */
@@ -1093,7 +1103,7 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
 
     httpd_resp_set_type(req, "text/html; charset=UTF-8");
 
-    chunk(req, "<!DOCTYPE html><html><head>)");
+    chunk(req, "<!DOCTYPE html><html><head>");
 
     chunk(req,
           "<script>"
@@ -1103,7 +1113,7 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
     chunk(req,
           /* ---------- CSS --------------------------------------------- */
           "<style>"
-          "html { font-size: 12px; }"
+          "html { font-size: 10px; }"
           "body{font-family:Arial,sans-serif;margin:0;background:#"
           "fafafa}"
           /* common wrapper */
@@ -1120,7 +1130,7 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
           "button{padding:4px 10px;margin:2px}"
           "button.confirm{background:#cc0000;color:#fff;border:1px solid #a00;border-radius:4px}"
           ".wide{width:160px}"
-          /* logo bar */
+
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
           ".logo img{height:38px;width:auto}"
           ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
