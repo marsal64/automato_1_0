@@ -481,7 +481,7 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "    }"
 
           "button.confirm{background:#cc0000;color:#fff;border:1px solid #a00;border-radius:4px}"
-          "button, input[type='button'], input[type='submit'] { font-size: 0.75em; }"
+          "button, textarea, input[type='button'], input[type='submit'] { font-size: 0.75em; }"
 
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
           ".logo img{height:38px;width:auto}"
@@ -1246,11 +1246,16 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
     if (current_user_id == 1) {
         chunk(req, "<br><br><label>");
         chunk(req, t("Řádek kontaktu:"));
-        chunk(req, "</label>&nbsp;");
-        // textarea or single‐line input:
-        chunk(req, "<input type='text' name='lowline2' value='");
+
+        // single‐line input with maxlength
+        char maxlen_buf[16];
+        snprintf(maxlen_buf, sizeof(maxlen_buf), "%d", LOWLINE2_MAXLEN);
+
+        chunk(req, "<input type='text' name='lowline2' maxlength='");
+        chunk(req, maxlen_buf);
+        chunk(req, "' value='");
         chunk(req, lowline2);
-        chunk(req, "' style='width:100%;'><br><br>");
+        chunk(req, "' style='width:100%;'><br><br>\n");
     } else {
         // hidden
         chunk(req, "<input type='hidden' name='lowline2' value=''>");
