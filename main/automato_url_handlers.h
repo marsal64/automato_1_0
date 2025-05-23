@@ -67,6 +67,7 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "<!DOCTYPE html><html><head>"
           "<meta name='viewport' content='width=device-width, initial-scale=1'>"
           "<style>"
+          "html { font-size: 12px; }"
           "body{font-family:Arial,sans-serif;margin:0;background:#"
           "fafafa}"
           /* common wrapper */
@@ -330,12 +331,14 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "<meta name='viewport' content='width=device-width,initial-scale=1'>"
           "<title>Popisy akcí</title>"
           "<style>"
+          "html { font-size: 12px; }"
           "body{font-family:Arial,sans-serif;margin:0;background:#fafafa}"
           ".wrapper{margin:20px 0 0 20px;max-width:860px;border:1px solid #bbb;"
           "padding:0 20px 20px 20px;background:#fff;}"
           "table{width:100%;border-collapse:collapse;margin-top:10px}"
           "th,td{border:1px solid #ccc;padding:6px;text-align:center}"
           "th{background:#eee}"
+          "#descTable td:first-child,#descTable th:first-child{width:90px}" 
           "input[type=text]{width:100%;box-sizing:border-box}"
           "button{padding:4px 10px;margin:2px}"
           "button.confirm{background:#d33;color:#fff;border:1px solid #a00;border-radius:4px}"
@@ -488,6 +491,7 @@ esp_err_t login_get_handler(httpd_req_t *req) {
                         "  <meta charset=\"UTF-8\">"
                         "  <title>%s</title>"
                         "  <style>"
+                        "html { font-size: 12px; }"
                         "    body  { font-family:Arial,sans-serif; display:flex; "
                         "justify-content:center; align-items:center; height:100vh; margin:0; }"
                         "    form  { border:1px solid #ddd; padding:20px; box-shadow:2px 2px "
@@ -591,6 +595,7 @@ esp_err_t login_post_handler(httpd_req_t *req) {
                             "<title>Automato redir</title>"
                             "</head>"
                             "<style>"
+                            "html { font-size: 12px; }"
                             "body {"
                             "  font-family: Arial, sans-serif;"
                             "}"
@@ -673,6 +678,7 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
 
           /* ---------- CSS --------------------------------------------- */
           "<style>"
+          "html { font-size: 12px; }"
           "body{font-family:Arial,sans-serif;margin:0;background:#"
           "fafafa}"
           /* common wrapper */
@@ -1004,6 +1010,7 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
     chunk(req,
           /* ---------- CSS --------------------------------------------- */
           "<style>"
+          "html { font-size: 12px; }"
           "body{font-family:Arial,sans-serif;margin:0;background:#"
           "fafafa}"
           /* common wrapper */
