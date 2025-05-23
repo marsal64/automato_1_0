@@ -82,25 +82,38 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
           ".logo img{height:38px;width:auto}"
           ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
-          /* rest of layout */
-          ".grid{display:grid;grid-template-columns:1fr 1fr}"
-          ".prices,.actions{border-top:1px solid "
-          "#bbb;padding:6px;box-sizing:border-box}"
+
+          ".grid{display:grid;"
+          "grid-template-columns:max-content 1fr;"
+          "column-gap:2em;}"
+
+          ".grid {  display: grid;"
+          "grid-template-columns: max-content 1fr;"
+          "column-gap: 2em;"
+          "border-top: 1px solid #bbb;}"
+          ".prices, .actions {"
+          "padding: 6px;"
+          "box-sizing: border-box;}"
+          ".actions {  border-left: 1px solid #bbb;}"
+
           ".actions{border-left:1px solid #bbb}"
           ".actions small{font-size:0.75em;color:#555}"
           ".actions li{margin-bottom:4px}"
           ".prices b{color:#c00}"
-          /* centre both column headings */
+
           ".prices h3,.actions h3{margin:0 0 8px 0;text-align:center}"
-          /* one unified horizontal bar (date + IP + button) */
+
           ".headbar{display:flex;justify-content:space-between;align-items:"
           "center;height:46px;padding:0 8px;}"
+
+
+          
           "</style>"
           "<script>"
           "function logoff(){location.href='/logout';}\n"
           "function updateDom(d){\n"
           "  document.getElementById('datetime').innerHTML = d.datetime;\n"
-          "  /* prices */\n"
+          "  /*     */\n"
           "  const ulp=document.getElementById('prices-list'); "
           "ulp.innerHTML='';\n"
           "  d.prices.forEach(p=>{\n"
@@ -338,7 +351,7 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "table{width:100%;border-collapse:collapse;margin-top:10px}"
           "th,td{border:1px solid #ccc;padding:6px;text-align:center}"
           "th{background:#eee}"
-          "#descTable td:first-child,#descTable th:first-child{width:90px}" 
+          "#descTable td:first-child,#descTable th:first-child{width:90px}"
           "input[type=text]{width:100%;box-sizing:border-box}"
           "button{padding:4px 10px;margin:2px}"
           "button.confirm{background:#cc0000;color:#fff;border:1px solid #a00;border-radius:4px}"
