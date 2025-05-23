@@ -341,7 +341,7 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "#descTable td:first-child,#descTable th:first-child{width:90px}" 
           "input[type=text]{width:100%;box-sizing:border-box}"
           "button{padding:4px 10px;margin:2px}"
-          "button.confirm{background:#d33;color:#fff;border:1px solid #a00;border-radius:4px}"
+          "button.confirm{background:#cc0000;color:#fff;border:1px solid #a00;border-radius:4px}"
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
           ".logo img{height:38px;width:auto}"
           ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
@@ -693,7 +693,7 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
           "th,td{border:1px solid #ccc;padding:6px;text-align:center}"
           "th{background:#eee}"
           "button{padding:4px 10px;margin:2px}"
-          "button.confirm{background:#d33;color:#fff;border:1px solid #a00;border-radius:4px}"
+          "button.confirm{background:#cc0000;color:#fff;border:1px solid #a00;border-radius:4px}"
           ".wide{width:160px}"
           /* logo bar */
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
@@ -1025,7 +1025,7 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
           "th,td{border:1px solid #ccc;padding:6px;text-align:center}"
           "th{background:#eee}"
           "button{padding:4px 10px;margin:2px}"
-          "button.confirm{background:#d33;color:#fff;border:1px solid #a00;border-radius:4px}"
+          "button.confirm{background:#cc0000;color:#fff;border:1px solid #a00;border-radius:4px}"
           ".wide{width:160px}"
           /* logo bar */
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
