@@ -368,7 +368,7 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
     chunk(req,
           "<!DOCTYPE html><html lang='cs'><head>"
           "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-          "<title>Popisy akcí</title>");
+          "<title>automato</title>");
     chunk(req,
           "  <style>"
           "    html { font-size: 10px; }"
@@ -441,6 +441,8 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "    .prices b {"
           "      color: #c00;"
           "    }"
+
+          "button.confirm{background:#cc0000;color:#fff;border:1px solid #a00;border-radius:4px}"
 
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
           ".logo img{height:38px;width:auto}"
@@ -692,10 +694,10 @@ esp_err_t login_post_handler(httpd_req_t *req) {
                             "<!DOCTYPE html>"
                             "<html lang=\"cs\">"
                             "<head>"
-                            "<title>Automato</title>"
+                            "<title>automato</title>"
                             "<meta charset=\"UTF-8\">"
                             "<meta http-equiv=\"refresh\" content=\"2;url=/login\">"
-                            "<title>Automato redir</title>"
+                            "<title>automato redir</title>"
                             "</head>"
                             "<style>"
                             "html { font-size: 10px; }"
@@ -775,7 +777,7 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
           "<!DOCTYPE html><html lang='cs'><head>"
           "<meta name='viewport' content='width=device-width,initial-scale=1'>"
           "<title>");
-    chunk(req, t("Nastavení"));
+    chunk(req, t("automato"));
     chunk(req,
           "</title>"
 
@@ -795,12 +797,14 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
 
     chunk(req,
 
-          "table{width:100%;border-collapse:separate;margin-top:1px;border-spacing: 0 0px}"
-          "th,td{border:1px solid #ccc;padding:1px 8px;text-align:center}"
+          "table{width:100%;border-collapse:separate;margin-top:1px;border-spacing: 1 1px}"
+
+          "th,td{border:1px solid #ccc;padding:1px 1px;text-align:center}"
 
           "th{background:#eee}"
           "button{padding:4px 10px;margin:2px}"
           "button.confirm{background:#cc0000;color:#fff;border:1px solid #a00;border-radius:4px}"
+          "button.del{padding:2px 6px;margin:0 2px;line-height:1;}"
           ".wide{width:160px}"
           /* logo bar */
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
@@ -830,9 +834,9 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
     chunk(req, "</th><th>");
     chunk(req, t("Levá strana"));
     chunk(req, "</th><th>");
-    chunk(req, t("Operátor"));
+    chunk(req, t("Podmínka"));
     chunk(req, "</th><th>");
-    chunk(req, t("Pravá strana"));
+    chunk(req, t("Poplatek obchodníkovi"));
     chunk(req, "</th><th>");
     chunk(req, t("Akce"));
     chunk(req, "</th><th>");
@@ -1130,6 +1134,7 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
           "}"
           "table{width:100%;border-collapse:collapse;margin-top:10px}"
           "th,td{border:1px solid #ccc;padding:6px;text-align:center}"
+
           "th{background:#eee}"
           "button{padding:4px 10px;margin:2px}"
           "button.confirm{background:#cc0000;color:#fff;border:1px solid #a00;border-radius:4px}"
