@@ -87,6 +87,7 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "#bbb;padding:6px;box-sizing:border-box}"
           ".actions{border-left:1px solid #bbb}"
           ".actions small{font-size:0.75em;color:#555}"
+          ".actions li{margin-bottom:4px}"
           ".prices b{color:#c00}"
           /* centre both column headings */
           ".prices h3,.actions h3{margin:0 0 8px 0;text-align:center}"
@@ -120,10 +121,14 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "  ula.innerHTML = '';\n"
           "  d.actions.forEach(a => {\n"
           "      const li = document.createElement('li');\n"
-          "      li.innerHTML = a.action + '&nbsp;&rarr;&nbsp;' + a.timestamp +\n"
-          "                     (a.desc ? ' <small>&nbsp;' + a.desc + '</small>' : '');\n"
+          "      li.innerHTML = a.action + '&nbsp;&rarr;&nbsp;' + a.timestamp +"
+          "         (a.desc ? '<br><small>' + a.desc + '</small>' : '');"
+
+
+
           "      ula.appendChild(li);\n"
           "  });\n"
+          "}"
 
           "async function fetchData(){\n"
           "  try{\n"
@@ -220,11 +225,10 @@ esp_err_t root_get_handler(httpd_req_t *req) {
                 break;
             }
         char line[512];
-        snprintf(line, sizeof(line), "<li>%s&nbsp;&rarr;&nbsp;%s%s%s%s</li>", last_actions_log[i].action, /* %s #1 */
-                 last_actions_log[i].timestamp,                                                           /* %s #2 */
-                 desc[0] ? " &nbsp;<small>" : "", /* %s #3 – open <small> only if we have a desc */
-                 desc[0] ? desc : "",             /* %s #4 – the description itself            */
-                 desc[0] ? "</small>" : "");      /* %s #5 – close it again                    */
+        snprintf(line, sizeof(line),
+                 desc[0] ? "<li>%s&nbsp;&rarr;&nbsp;%s<br><small>%s</small></li>" : "<li>%s&nbsp;&rarr;&nbsp;%s</li>",
+                 last_actions_log[i].action, last_actions_log[i].timestamp,
+                 desc); /* third arg is used only when desc[0] != '\0' */
         chunk(req, line);
     }
 
@@ -334,6 +338,7 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "th{background:#eee}"
           "input[type=text]{width:100%;box-sizing:border-box}"
           "button{padding:4px 10px;margin:2px}"
+          "button.confirm{background:#d33;color:#fff;border:1px solid #a00}"
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
           ".logo img{height:38px;width:auto}"
           ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
@@ -354,7 +359,7 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
     chunk(req, t("Zpět"));
     chunk(req,
           "</button>"
-          "<button id='saveBtn' style='float:right;'>");
+          "<button id='saveBtn' class='confirm' style='float:right;'>");
     chunk(req, t("Potvrzení"));
     chunk(req,
           "</button><br style='clear:both'>"
@@ -680,6 +685,7 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
           "th,td{border:1px solid #ccc;padding:6px;text-align:center}"
           "th{background:#eee}"
           "button{padding:4px 10px;margin:2px}"
+          "button.confirm{background:#d33;color:#fff;border:1px solid #a00}"
           ".wide{width:160px}"
           /* logo bar */
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
@@ -728,7 +734,7 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
     chunk(req, t("Zpět"));
     chunk(req,
           "</button>" /* NEW */
-          "<button id='saveBtn' style='float:right;'>");
+          "<button id='saveBtn' class='confirm' style='float:right;'>");
     chunk(req, t("Potvrzení"));
     chunk(req,
           "</button>"
@@ -1010,6 +1016,7 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
           "th,td{border:1px solid #ccc;padding:6px;text-align:center}"
           "th{background:#eee}"
           "button{padding:4px 10px;margin:2px}"
+          "button.confirm{background:#d33;color:#fff;border:1px solid #a00}"
           ".wide{width:160px}"
           /* logo bar */
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
@@ -1066,7 +1073,7 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
     }
 
     // buttons
-    chunk(req, "<button type='submit'>");
+    chunk(req, "<button type='submit' class='confirm'>");
     chunk(req, t("Potvrzení"));
     chunk(req, "</button>");
     chunk(req,
