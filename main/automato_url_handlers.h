@@ -369,25 +369,27 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
     chunk(req, json ? json : "[]");
     chunk(req,
           ";"
-          "const tbody = document.querySelector('#descTable tbody');"
+          "const tbody=document.querySelector('#descTable tbody');"
           "function buildRow(d){"
-          "  const tr = document.createElement('tr');"
-          "  tr.innerHTML = `"
-          "<td>${d.action}</td>"
-          "<td>"
-          "<input"
-          " type=\"text\""
-          " maxlength=\"30\""
-          " value=\"${d.desc.replace(/\\\"/g,'&quot;')}\""
-          " style=\"width:100%;max-width:150px;box-sizing:border-box;\""
-          ">"
-          "</td>`;"
-          "  tbody.appendChild(tr);"
+          " const tr=document.createElement('tr');"
+          " tr.innerHTML=`<td>${d.action}</td>"
+          " <td><input type='text' value='${d.desc.replace(/\"/g,'&quot;')}'></td>`;"
+          " tbody.appendChild(tr);"
           "}"
-          "function render(){ tbody.innerHTML = ''; initData.forEach(buildRow); }"
-          "render();"
-          /* …rest of your code… */
-    );
+          "function render(){tbody.innerHTML='';initData.forEach(buildRow);} render();"
+
+          "document.getElementById('saveBtn').onclick=async()=>{"
+          "  const out=[...tbody.children].map(r=>({"
+          "     action : r.children[0].textContent.trim(),"
+          "     desc   : r.querySelector('input').value.trim().slice(0,30) /* 30 chars */"
+          "  }));"
+          "  try{"
+          "     const resp=await fetch('/descriptions',{method:'POST',"
+          "           headers:{'Content-Type':'application/json'},"
+          "           body:JSON.stringify(out)});"
+          "     alert(resp.ok?'");
+
+
     chunk(req, t("Uloženo"));
     chunk(req, "':'");
     chunk(req, t("Chyba při ukládání"));
