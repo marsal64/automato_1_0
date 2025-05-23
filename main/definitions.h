@@ -6,6 +6,10 @@
 #define FW_VERSION "automato_1_0"
 #define MAIN_TITLE "automato 1.0"
 
+// lowest line 1
+char lowline1[] = "automato 1.0. Úpravy funkčnosti při změně formátu vstupních dat OTE nebo jiných změnách podmínek jsou řešeny v rámci zakoupené podpory.";
+char lowline2[100] = "Kontakt: Ota Pekař, pekar@nescom.com, +420602328542";
+
 // Left sides list
 char *DEF_LEFTSIDES[]={
     "EUROTE",

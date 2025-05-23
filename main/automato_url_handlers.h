@@ -144,6 +144,11 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "      color: #c00;"
           "    }"
 
+          "  .footer {"
+          "    font-size: 50%;"
+          "    padding-left: 10px;"
+          "  }"
+
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
           ".logo img{height:38px;width:auto}"
           ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
@@ -217,15 +222,17 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "<div class='hb-controls'>"
           "<form action='/setup' method='get' style='margin:0'>"
           "<button>");
-    chunk(req, t("Akce"));
+    chunk(req, t("Podmínky akcí"));
     chunk(req,
           "</button>"
           "</form>"
           "<form action='/descriptions' method='get' style='margin:0'>"
           "<button>");
     chunk(req, t("Popisy akcí"));
+
     chunk(req,
           "</button>"
+
           "</form>"
           "<form action='/settings' method='get' style='margin:0'>"
           "<button>");
@@ -282,6 +289,12 @@ esp_err_t root_get_handler(httpd_req_t *req) {
     chunk(req, "<button class = 'logout' onclick='logoff()' style='margin:20px 0 0 40px;'>");
     chunk(req, t("Odhlásit"));
     chunk(req, "</button>");
+    chunk(req, "<br><br><br>");
+    chunk(req, "<div class='footer'>");
+    chunk(req, lowline1);
+    chunk(req, "<br>");
+    chunk(req, lowline2);
+    chunk(req, "/div");  // of class footer
 
     /* ---------- close document --------------------------------------- */
     chunk(req, "</body></html>");
@@ -459,8 +472,12 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "</span></div>"
           "<div class='wrapper'><h2>");
     chunk(req, t("Popisy akcí"));
+    chunk(req, "</h2>");
+    chunk(req, t("Změny potvrďte stiskem tlačítka 'Potvrzení'"));
+    chunk(req, t("<br><br>"));
+
     chunk(req,
-          "</h2><table id='descTable'><thead><tr>"
+          "<table id='descTable'><thead><tr>"
           "<th>");
     chunk(req, t("Akce"));
     chunk(req, "</th><th style='width:150px;'>");
@@ -831,8 +848,10 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
           "<div class='wrapper'>"
           "<h2>");
     chunk(req, t("Nastavení podmínek a akcí"));
+    chunk(req, "</h2>");
+    chunk(req, t("Změny potvrďte stiskem tlačítka 'Potvrzení'"));
+    chunk(req, t("<br><br>"));
     chunk(req,
-          "</h2>"
           "<table id='condTable'>"
           "<thead><tr>"
           "<th>");
@@ -995,7 +1014,8 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
     chunk(req,
           "'\n"
           "          : '");
-    chunk(req, t("Pravá strana smí obsahovat pouze čísla a znaky + - * / ."));
+    chunk(req,
+          t("Pravá strana smí obsahovat pouze čísla a znaky + - * / . (používá se desetinná tečka, nikoli čárka)"));
     chunk(req,
           "');\n"
           "    return;\n"
@@ -1212,7 +1232,7 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
     chunk(req, t("Potvrzení"));
     chunk(req, "</button>");
 
-    
+
     chunk(req, "<br><br>");
     // is "servis" - allow nvs wipe out
     if (current_user_id == 1) {
