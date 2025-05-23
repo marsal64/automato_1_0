@@ -210,10 +210,10 @@ esp_err_t root_get_handler(httpd_req_t *req) {
     chunk(req, dt_buf);
     chunk(req,
           "</span>"
-          "<span id='ipaddr'>&nbsp;&nbsp;");
+          "<span id='ipaddr'>&nbsp;&nbsp;&nbsp;&nbsp;");
     chunk(req, ipaddress);
     chunk(req,
-          "&nbsp;&nbsp;</span>"
+          "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>"
           "<div class='hb-controls'>"
           "<form action='/setup' method='get' style='margin:0'>"
           "<button>");
