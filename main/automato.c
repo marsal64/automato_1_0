@@ -1806,12 +1806,14 @@ void app_main(void) {
     ESP_LOGI(TAG, "Loading language from NVS");
     size_t sz = sizeof(gst_lang);
     err = nvs_get_blob(nvs_handle_storage, "gst_lang", &gst_lang, &sz);
-    if (err == ESP_OK && sz == sizeof(gst_lang) && gst_lang < LANG_COUNT) {
-        gst_lang = LANG_CZ;  // Default
-    } else {
-        // first‐boot or invalid → write default
+    if (err != ESP_OK || sz != sizeof(gst_lang) || gst_lang >= LANG_COUNT) {
+        // first-boot or corrupted → fall back to default
+        gst_lang = LANG_CZ;
+        ESP_LOGI(TAG, "gst_lang not found or invalid, defaulting to %d", gst_lang);
         nvs_set_blob(nvs_handle_storage, "gst_lang", &gst_lang, sizeof(gst_lang));
         nvs_commit(nvs_handle_storage);
+    } else {
+        ESP_LOGI(TAG, "Loaded gst_lang=%d from NVS", gst_lang);
     }
 
     // dummy ticks cycle
