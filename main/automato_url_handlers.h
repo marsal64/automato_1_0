@@ -24,9 +24,8 @@ static int price_cmp(const void *a, const void *b) /* newest → oldest */
 esp_err_t root_get_handler(httpd_req_t *req) {
     /* ---------- auth -------------------------------------------------- */
     char cookie_value[32];
-    if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value))
-        || strcmp(cookie_value, "1") != 0
-        || current_user_id == -1) {
+    if (!get_cookie(req, "auth", cookie_value, sizeof(cookie_value)) || strcmp(cookie_value, "1") != 0 ||
+        current_user_id == -1) {
         httpd_resp_set_status(req, "307 Temporary Redirect");
         httpd_resp_set_hdr(req, "Location", "/login");
         httpd_resp_send(req, NULL, 0);
@@ -41,7 +40,9 @@ esp_err_t root_get_handler(httpd_req_t *req) {
     }
 
     /* ---------- prices from NVS -------------------------------------- */
-    typedef struct { char key[13], val[16]; } price_t;
+    typedef struct {
+        char key[13], val[16];
+    } price_t;
     price_t prices[400];
     size_t n_prices = 0;
 
@@ -50,13 +51,12 @@ esp_err_t root_get_handler(httpd_req_t *req) {
         do {
             nvs_entry_info_t info;
             nvs_entry_info(it, &info);
-            if (!strncmp(info.key, "o_", 2) && strlen(info.key) == 12
-                && n_prices < sizeof(prices)/sizeof(prices[0])) {
+            if (!strncmp(info.key, "o_", 2) && strlen(info.key) == 12 &&
+                n_prices < sizeof(prices) / sizeof(prices[0])) {
                 strncpy(prices[n_prices].key, info.key + 2, 12);
                 prices[n_prices].key[12] = '\0';
                 size_t sz = sizeof(prices[n_prices].val);
-                if (nvs_get_str(nvs_handle_storage, info.key,
-                                prices[n_prices].val, &sz) == ESP_OK) {
+                if (nvs_get_str(nvs_handle_storage, info.key, prices[n_prices].val, &sz) == ESP_OK) {
                     ++n_prices;
                 }
             }
@@ -68,143 +68,163 @@ esp_err_t root_get_handler(httpd_req_t *req) {
     /* ---------- HTML start ------------------------------------------- */
     httpd_resp_set_type(req, "text/html; charset=UTF-8");
     chunk(req,
-      "<!DOCTYPE html><html><head>"
-      "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-      "<style>"
-        "html{font-size:12px;}"
-        "body{font-family:Arial,sans-serif;margin:0;background:#fafafa}"
-        ".wrapper{margin:20px 0 0 20px;max-width:860px;"
-                  "border:1px solid #bbb;padding:0 20px 20px 20px;background:#fff}"
-        ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
-        ".logo img{height:38px;width:auto}"
-        ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
+          "<!DOCTYPE html><html><head>"
+          "  <meta name='viewport' content='width=device-width, initial-scale=1'>"
+          "  <style>"
+          "    html{font-size:12px;}"
+          "    body{font-family:Arial,sans-serif;margin:0;background:#fafafa}"
+          "    /* inline-block wrapper will shrink to its content */"
+          "    .wrapper{display:inline-block;margin:20px 0 0 20px;"
+          "             max-width:860px;border:1px solid #bbb;"
+          "             padding:0 20px 20px 20px;background:#fff}"
+          "    .logo{display:flex;align-items:center;margin:20px 0 0 20px}"
+          "    .logo img{height:38px;width:auto}"
+          "    .logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
 
-        /* two-column grid */
-        ".grid{display:grid;grid-template-columns:max-content auto;"
-               "column-gap:2em;border-top:1px solid #bbb}"
-        ".prices,.actions{padding:6px;box-sizing:border-box}"
-        ".actions{border-left:1px solid #bbb}"
-        ".actions li{margin-bottom:4px}"
-        ".actions small{font-size:.75em;color:#555}"
-        ".prices b{color:#c00}"
-        ".prices h3,.actions h3{margin:0 0 8px 0;text-align:center}"
+          "    /* two-column grid, both tracks sized to their content */"
+          "    .grid{display:grid;"
+          "           grid-template-columns:max-content max-content;"
+          "           column-gap:2em;border-top:1px solid #bbb;}"
 
-        /* new header layout */
-        ".headbar{display:grid;"
-                 "grid-template-columns:max-content max-content 1fr;"
-                 "align-items:center;height:46px;"
-                 "padding:0 8px;border-bottom:1px solid #ccc;gap:.5em}"
-        ".hb-controls{display:flex;justify-self:end;gap:.5em}"
-        ".headbar span{white-space:nowrap}"
-      "</style>"
-      "<script>"
-        "function logoff(){location.href='/logout';}"
-        "function updateDom(d){"
-          "document.getElementById('datetime').innerHTML = d.datetime;"
-          "const ulp=document.getElementById('prices-list'); ulp.innerHTML='';"
-          "d.prices.forEach(p=>{"
-            "const li=document.createElement('li');"
-            "const k=p.key, fmt=`${k.slice(0,4)}-${k.slice(4,6)}-${k.slice(6,8)}&nbsp;&nbsp;&nbsp;${k.slice(8,10)}`;"
-            "li.innerHTML=(p.key===d.now_key?'<b>':'')+fmt+'&nbsp;:&nbsp;&nbsp;&nbsp;'+p.val+(p.key===d.now_key?'</b>':'');"
-            "ulp.appendChild(li);"
-          "});"
-          "const ula=document.getElementById('actions-list'); ula.innerHTML='';"
-          "d.actions.forEach(a=>{"
-            "const li=document.createElement('li');"
-            "li.innerHTML=a.action+'&nbsp;&rarr;&nbsp;'+a.timestamp+(a.desc?'<br><small>'+a.desc+'</small>':'');"
-            "ula.appendChild(li);"
-          "});"
-        "}"
-        "async function fetchData(){"
-          "try{const r=await fetch('/data'); if(r.ok){const j=await r.json(); updateDom(j);} }"
-          "catch(e){console.warn('fetch',e);}"
-        "}"
-        "window.addEventListener('load',()=>{fetchData(); setInterval(fetchData,1000);});"
-      "</script>"
-      "</head><body>"
-      "<div class='logo'><img src='/logo' alt='automato'><span>automato</span></div>"
-      "<div class='wrapper'>"
-    );
+          "    /* prevent any line-wrap inside your lists */"
+          "    .prices li, .actions li{white-space:nowrap;}"
+
+          "    .prices, .actions{padding:6px;box-sizing:border-box}"
+          "    .actions{border-left:1px solid #bbb}"
+          "    .actions small{font-size:.75em;color:#555}"
+          "    .prices b{color:#c00}"
+          "    .prices h3,.actions h3{margin:0 0 8px 0;text-align:center}"
+
+          "    /* header row: three columns, each sized to content */"
+          "    .headbar{display:grid;"
+          "             grid-template-columns:max-content max-content max-content;"
+          "             align-items:center;height:46px;"
+          "             padding:0 8px;border-bottom:1px solid #ccc;"
+          "             gap:.5em}"
+          "    .hb-controls{display:flex;justify-self:end;gap:.5em}"
+          "    .headbar span{white-space:nowrap}"
+          "  </style>"
+          "  <script>"
+          "    function logoff(){location.href='/logout';}"
+          "    function updateDom(d){"
+          "      document.getElementById('datetime').innerHTML = d.datetime;"
+          "      const ulp = document.getElementById('prices-list'); ulp.innerHTML='';"
+          "      d.prices.forEach(p=>{"
+          "        const li = document.createElement('li');"
+          "        const k = p.key,"
+          "              fmt = `${k.slice(0,4)}-${k.slice(4,6)}-${k.slice(6,8)}  ${k.slice(8,10)}`;"
+          "        li.innerHTML = (p.key===d.now_key?'<b>':'')"
+          "                     + fmt + ' :  ' + p.val"
+          "                     + (p.key===d.now_key?'</b>':'');"
+          "        ulp.appendChild(li);"
+          "      });"
+          "      const ula = document.getElementById('actions-list'); ula.innerHTML='';"
+          "      d.actions.forEach(a=>{"
+          "        const li = document.createElement('li');"
+          "        li.innerHTML = a.action + ' → ' + a.timestamp"
+          "                     + (a.desc?'<br><small>'+a.desc+'</small>':'');"
+          "        ula.appendChild(li);"
+          "      });"
+          "    }"
+          "    async function fetchData(){"
+          "      try{"
+          "        const r = await fetch('/data');"
+          "        if(r.ok){ const j = await r.json(); updateDom(j); }"
+          "      } catch(e){ console.warn('fetch',e); }"
+          "    }"
+          "    window.addEventListener('load',()=>{ fetchData(); setInterval(fetchData,1000); });"
+          "  </script>"
+          "</head><body>"
+          "  <div class='logo'>"
+          "    <img src='/logo' alt='automato'><span>automato</span>"
+          "  </div>"
+          "  <div class='wrapper'>");
 
     /* ---------- head bar --------------------------------------------- */
     char dt_buf[64];
     if (nntptime_status) {
-        strftime(dt_buf, sizeof(dt_buf), "%Y-%m-%d&nbsp;%H:%M:%S", &timeinfo_sntp);
+        strftime(dt_buf, sizeof(dt_buf), "%Y-%m-%d %H:%M:%S", &timeinfo_sntp);
         int wd = timeinfo_sntp.tm_wday;
-        if (wd<0||wd>6) wd=0;
-        snprintf(dt_buf+strlen(dt_buf), sizeof(dt_buf)-strlen(dt_buf),
-                 "&nbsp;(%s)", translatedays[wd]);
+        if (wd < 0 || wd > 6) wd = 0;
+        snprintf(dt_buf + strlen(dt_buf), sizeof(dt_buf) - strlen(dt_buf), " (%s)", translatedays[wd]);
     } else {
         strcpy(dt_buf, t("čas nenastaven"));
     }
 
-    /* use our new 3-column header */
+    /* print our new three-column header: date, IP, then controls */
     chunk(req,
-      "<div class='headbar'>"
-        "<span id='datetime'>"); chunk(req, dt_buf); chunk(req, "</span>"
-        "<span id='ipaddr'>");    chunk(req, ipaddress); chunk(req, "</span>"
-        "<div class='hb-controls'>"
-          "<form action='/setup'        method='get' style='margin:0'><button>"); chunk(req,t("Akce"));          chunk(req,"</button></form>"
-          "<form action='/descriptions' method='get' style='margin:0'><button>"); chunk(req,t("Popisy akcí"));    chunk(req,"</button></form>"
-          "<form action='/settings'     method='get' style='margin:0'><button>"); chunk(req,t("Nastavení"));      chunk(req,"</button></form>"
-        "</div>"
-      "</div>"
-    );
+          "<div class='headbar'>"
+          "<span id='datetime'>");
+    chunk(req, dt_buf);
+    chunk(req,
+          "</span>"
+          "<span id='ipaddr'>");
+    chunk(req, ipaddress);
+    chunk(req,
+          "</span>"
+          "<div class='hb-controls'>"
+          "<form action='/setup' method='get' style='margin:0'>"
+          "<button>");
+    chunk(req, t("Akce"));
+    chunk(req,
+          "</button>"
+          "</form>"
+          "<form action='/descriptions' method='get' style='margin:0'>"
+          "<button>");
+    chunk(req, t("Popisy akcí"));
+    chunk(req,
+          "</button>"
+          "</form>"
+          "<form action='/settings' method='get' style='margin:0'>"
+          "<button>");
+    chunk(req, t("Nastavení"));
+    chunk(req,
+          "</button>"
+          "</form>"
+          "</div>"
+          "</div>");
 
     /* ---------- grid row --------------------------------------------- */
     chunk(req, "<div class='grid'>");
 
     /* prices column --------------------------------------------------- */
-    chunk(req,
-      "<div class='prices'><h3>"); chunk(req, t("Ceny OTE")); chunk(req,
-      "</h3><ul id='prices-list' style='margin:0;padding-left:1em;list-style:none;'>"
-    );
+    chunk(req, "<div class='prices'><h3>");
+    chunk(req, t("Ceny OTE"));
+    chunk(req, "</h3><ul id='prices-list' style='margin:0;padding-left:1em;list-style:none;'>");
     for (size_t i = 0; i < n_prices; ++i) {
-        char buf[128];
-        snprintf(buf, sizeof(buf),
-          "<li>%.4s-%.2s-%.2s&nbsp;&nbsp;&nbsp;%.2s&nbsp;:&nbsp;&nbsp;&nbsp;%s</li>",
-          prices[i].key,
-          prices[i].key+4,
-          prices[i].key+6,
-          prices[i].key+8,
-          prices[i].val
-        );
+        char line[128];
+        snprintf(line, sizeof(line), "<li>%.4s-%.2s-%.2s  %.2s :  %s</li>", prices[i].key, prices[i].key + 4,
+                 prices[i].key + 6, prices[i].key + 8, prices[i].val);
         if (!strcmp(prices[i].key, now_key)) {
-            chunk(req, "<b>"); chunk(req, buf); chunk(req, "</b>");
+            chunk(req, "<b>");
+            chunk(req, line);
+            chunk(req, "</b>");
         } else {
-            chunk(req, buf);
+            chunk(req, line);
         }
     }
     chunk(req, "</ul></div>");
 
     /* actions column -------------------------------------------------- */
-    chunk(req,
-      "<div class='actions'><h3>"); chunk(req, t("Akce&nbsp;&rarr;&nbsp;naposledy aktivováno")); chunk(req,
-      "</h3><ul id='actions-list' style='margin:0;padding-left:1em;'>"
-    );
+    chunk(req, "<div class='actions'> <h3>");
+    chunk(req, t("Akce → naposledy aktivováno"));
+    chunk(req, "</h3><ul id='actions-list' style='margin:0;padding-left:1em;'>");
     for (int i = 0; i < NUMLASTACTIONSLOG && last_actions_log[i].action[0]; ++i) {
         const char *desc = "";
-        for (int k = 0; actions[k].action_name[0]; ++k)
-            if (!strcmp(actions[k].action_name, last_actions_log[i].action))
-                desc = actions[k].action_desc;
-        char buf2[512];
-        snprintf(buf2, sizeof(buf2),
-          desc[0]
-            ? "<li>%s&nbsp;&rarr;&nbsp;%s<br><small>%s</small></li>"
-            : "<li>%s&nbsp;&rarr;&nbsp;%s</li>",
-          last_actions_log[i].action,
-          last_actions_log[i].timestamp,
-          desc
-        );
-        chunk(req, buf2);
+        for (int k = 0; actions[k].action_name[0]; ++k) {
+            if (!strcmp(actions[k].action_name, last_actions_log[i].action)) desc = actions[k].action_desc;
+        }
+        char line2[512];
+        snprintf(line2, sizeof(line2), desc[0] ? "<li>%s → %s<br><small>%s</small></li>" : "<li>%s → %s</li>",
+                 last_actions_log[i].action, last_actions_log[i].timestamp, desc);
+        chunk(req, line2);
     }
-    chunk(req, "</ul></div></div>");  /* close .actions, then .grid */
-    chunk(req, "</div>");             /* close .wrapper */
+    chunk(req, "</ul></div></div>"); /* close .actions, then .grid */
+
+    chunk(req, "</div>"); /* close .wrapper */
 
     /* ---------- log-off button --------------------------------------- */
-    chunk(req,
-      "<button onclick='logoff()' style='margin:20px 0 0 40px;'>"
-    );
+    chunk(req, "<button onclick='logoff()' style='margin:20px 0 0 40px;'>");
     chunk(req, t("Odhlásit"));
     chunk(req, "</button>");
 
