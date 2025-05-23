@@ -165,11 +165,20 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "      const ulp = document.getElementById('prices-list'); ulp.innerHTML='';"
           "      d.prices.forEach(p=>{"
           "        const li = document.createElement('li');"
-          "        const k = p.key,"
-          "              fmt = `${k.slice(0,4)}-${k.slice(4,6)}-${k.slice(6,8)}  ${k.slice(8,10)}`;"
-          "        li.innerHTML = (p.key===d.now_key?'<b>':'')"
-          "                     + fmt + ' :  ' + p.val"
-          "                     + (p.key===d.now_key?'</b>':'');"
+
+          "const k = p.key;"
+          "const year  = k.slice(0,4);"
+          "const month = k.slice(4,6);"
+          "const day   = k.slice(6,8);"
+          "const hh    = parseInt(k.slice(8,10), 10);"
+          "const phh   = (hh + 23) % 24;"
+          "const date  = `${day}.${month}.${year}`;"
+          "const range = `${phh}-${hh.toString().padStart(2,'0')}`;"
+
+          "li.innerHTML = (p.key === d.now_key ? '<b>' : '')"
+          "            + `${date} ${range} : ${p.val}€`"
+          "           + (p.key === d.now_key ? '</b>' : '');"
+
           "        ulp.appendChild(li);"
           "      });"
           "      const ula = document.getElementById('actions-list'); ula.innerHTML='';"
@@ -250,11 +259,21 @@ esp_err_t root_get_handler(httpd_req_t *req) {
     chunk(req, "<div class='prices'><h3>");
     chunk(req, t("Ceny OTE"));
     chunk(req, "</h3><ul id='prices-list' style='margin:0;padding-left:1em;list-style:none;'>");
+
+
     for (size_t i = 0; i < n_prices; ++i) {
+        // extract YYYY MM DD HH
+        const char *k = prices[i].key;
+        int hh = atoi(k + 8);
+        int phh = (hh + 23) % 24;  // previous hour (wrap at midnight)
+        // build a Czech‐style "DD.MM.YYYY phh-hh : val€"
+        char day[3] = {k[6], k[7], '\0'};
+        char mon[3] = {k[4], k[5], '\0'};
+        char year[5] = {k[0], k[1], k[2], k[3], '\0'};
         char line[128];
-        snprintf(line, sizeof(line), "<li>%.4s-%.2s-%.2s  %.2s :  %s</li>", prices[i].key, prices[i].key + 4,
-                 prices[i].key + 6, prices[i].key + 8, prices[i].val);
-        if (!strcmp(prices[i].key, now_key)) {
+        snprintf(line, sizeof(line), "<li>%s.%s.%s %d-%02d : %s€</li>", day, mon, year, phh, hh, prices[i].val);
+
+        if (!strcmp(k, now_key)) {
             chunk(req, "<b>");
             chunk(req, line);
             chunk(req, "</b>");
