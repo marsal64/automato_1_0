@@ -838,11 +838,11 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
           "<th>");
     chunk(req, t("Povoleno"));
     chunk(req, "</th><th>");
-    chunk(req, t("Porovnat co"));
+    chunk(req, t("Porovnat co (EUROTE=Cena OTE)"));
     chunk(req, "</th><th>");
     chunk(req, t("Podmínka"));
     chunk(req, "</th><th>");
-    chunk(req, t("Poplatek obchodníkovi"));
+    chunk(req, t("Hodnota (poplatek obchodníkovi)"));
     chunk(req, "</th><th>");
     chunk(req, t("Akce"));
     chunk(req, "</th><th>");

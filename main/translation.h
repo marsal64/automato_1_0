@@ -47,6 +47,7 @@ static const translation cz_en[] = {
     {"Zpět", "Back"},
     {"Odstranit", "Remove"},
     {"Levá strana", "Left side"},
+    {"Porovnat co (EUROTE=Cena OTE)", "Comparing what (EUROTE=Price OTE)"},
     {"Pravá strana", "Right side"},
     {"Operátor", "Operator"},
     {"Podmínka", "Condition"},
@@ -82,6 +83,7 @@ static const translation cz_en[] = {
     {"byl dosažen", "was achieved"},
     {"Akce", "Action"},
     {"Popis", "Description"},
+    {"Hodnota (poplatek obchodníkovi)", "Value (delivery fee)"},
     {MAIN_TITLE, MAIN_TITLE},
     {"Akce → naposledy aktivováno", "Action → activated last time"},
 
