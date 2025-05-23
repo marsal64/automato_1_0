@@ -321,7 +321,7 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
     chunk(req,
           "<!DOCTYPE html><html lang='cs'><head>"
           "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-          "<title>Popisy akcí</title>");
+          "<title>Automato</title>");
     chunk(req,
           "  <style>"
           "    html { font-size: 8px; }"
