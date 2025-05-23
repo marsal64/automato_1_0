@@ -93,7 +93,7 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "    .actions{border-left:1px solid #bbb}"
           "    .actions small{font-size:.75em;color:#555}"
           "    .prices b{color:#c00}"
-          "    .prices h3,.actions h3{margin:0 0 8px 0;text-align:center}"
+          "    .prices h3,.actions h3{margin:0 margin: 0 auto 8px}"
 
           "    /* header row: three columns, each sized to content */"
           "    .headbar{display:grid;"
