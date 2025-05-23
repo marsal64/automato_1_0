@@ -316,7 +316,7 @@ esp_err_t root_get_handler(httpd_req_t *req) {
     chunk(req, lowline1);
     chunk(req, "<br>");
     chunk(req, lowline2);
-    chunk(req, "/div");  // of class footer
+    chunk(req, "</div>");  // of class footer
 
     /* ---------- close document --------------------------------------- */
     chunk(req, "</body></html>");
@@ -1295,6 +1295,36 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
     return httpd_resp_send_chunk(req, NULL, 0);
 }
 
+static char hexval(char c) {
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    else if (c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+    else if (c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+    else
+        return 0;
+}
+
+static void url_decode(char *dst, const char *src, size_t dstsize) {
+    size_t i = 0;
+    while (*src && i + 1 < dstsize) {
+        if (*src == '%' && src[1] && src[2]) {
+            // grab two hex digits
+            char hi = hexval(src[1]);
+            char lo = hexval(src[2]);
+            dst[i++] = (char)(hi * 16 + lo);
+            src += 3;
+        } else if (*src == '+') {
+            dst[i++] = ' ';
+            src++;
+        } else {
+            dst[i++] = *src++;
+        }
+    }
+    dst[i] = '\0';
+}
+
 esp_err_t settings_post_handler(httpd_req_t *req) {
     /* ---------- auth -------------------------------------------------- */
     char cookie_value[32];
@@ -1318,7 +1348,9 @@ esp_err_t settings_post_handler(httpd_req_t *req) {
 
     // 2) Parse key/value pairs
     int lang = 0, wipe = 0;
-    char userp[33] = {0}, servp[33] = {0};
+    char userp[33] = {0};
+    char servp[33] = {0};
+    char lowl[LOWLINE2_MAXLEN] = "";
     for (char *p = buf; p; /* */) {
         char *pair = p;
         char *amp = strchr(pair, '&');
@@ -1332,7 +1364,10 @@ esp_err_t settings_post_handler(httpd_req_t *req) {
                 strncpy(userp, eq + 1, sizeof(userp) - 1);
             else if (!strcmp(pair, "serv_pass"))
                 strncpy(servp, eq + 1, sizeof(servp) - 1);
-            else if (!strcmp(pair, "wipe"))
+            else if (!strcmp(pair, "lowline2")) {
+                // translate to UTF-8
+                url_decode(lowl, eq + 1, sizeof(lowl));
+            } else if (!strcmp(pair, "wipe"))
                 wipe = atoi(eq + 1);
         }
         p = amp ? amp + 1 : NULL;
@@ -1376,6 +1411,8 @@ esp_err_t settings_post_handler(httpd_req_t *req) {
             ESP_LOGI(TAG, "Saved new automato password to NVS");
         }
     }
+
+
     if (servp[0]) {
         strncpy(users[1].password, servp, sizeof(users[1].password) - 1);
         users[1].password[sizeof(users[1].password) - 1] = '\0';
@@ -1388,29 +1425,13 @@ esp_err_t settings_post_handler(httpd_req_t *req) {
         }
     }
 
-    // parse lowline2 if servis
-    if (current_user_id == 1) {
-        char *p = strstr(buf, "lowline2=");
-        if (p) {
-            // simple URL‐decoded slice (you may want a proper decoder)
-            char *val = p + strlen("lowline2=");
-            // ampersand ends it
-            char *end = strchr(val, '&');
-            size_t len = end ? (size_t)(end - val) : strlen(val);
-            if (len > sizeof(lowline2) - 1) len = sizeof(lowline2) - 1;
-            // crude URL-decode of spaces/+ only:
-            for (size_t i = 0, j = 0; i < len; ++i) {
-                if (val[i] == '+')
-                    lowline2[j++] = ' ';
-                else
-                    lowline2[j++] = val[i];
-            }
-            lowline2[len] = '\0';
-            // persist
-            nvs_set_str(nvs_handle_storage, "lowline2", lowline2);
-            nvs_commit(nvs_handle_storage);
-        }
+    if (lowl[0]) {
+        strncpy(lowline2, lowl, sizeof(lowline2) - 1);
+        lowline2[sizeof(lowline2) - 1] = '\0';
+        nvs_set_str(nvs_handle_storage, "lowline2", lowline2);
+        nvs_commit(nvs_handle_storage);
     }
+
 
     // 5) Redirect back
     httpd_resp_set_status(req, "302 Found");
