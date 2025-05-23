@@ -1133,7 +1133,7 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
           /* common wrapper */
           ".wrapper{"
           "    margin:20px 0 0 20px;"
-          "    max-width:860px;"
+          "    max-width:600px;"
           "    border:1px solid #bbb;"
           "    padding:0 20px 20px 20px;"
           "    background:#fff;"
@@ -1176,7 +1176,7 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
     // language selector
     chunk(req, t("Změny potvrďte stiskem tlačítka 'Potvrzení'"));
     chunk(req,
-          "<br><br><label>Jazyk/language:&nbsp;</label>"
+          "<br><br><br><label>Jazyk/language:&nbsp;</label>"
           "<select name='lang'>"
           "<option value='0'");
     if (gst_lang == LANG_CZ) chunk(req, "selected");
@@ -1201,15 +1201,18 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
     }
 
     // buttons
-    chunk(req, "<button type='submit' class='confirm'>");
-    chunk(req, t("Potvrzení"));
-    chunk(req, "</button>");
     chunk(req,
           "<button id='backBtn' type='button'"
           " onclick=\"window.location.href='/'\""
           " style='float:right;margin-left:8px;'>");
     chunk(req, t("Zpět"));
     chunk(req, "</button>");
+
+    chunk(req, "<button type='submit' class='confirm' style='float:right;margin-left:8px;'>");
+    chunk(req, t("Potvrzení"));
+    chunk(req, "</button>");
+
+    
     chunk(req, "<br><br>");
     // is "servis" - allow nvs wipe out
     if (current_user_id == 1) {
