@@ -338,7 +338,7 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "th{background:#eee}"
           "input[type=text]{width:100%;box-sizing:border-box}"
           "button{padding:4px 10px;margin:2px}"
-          "button.confirm{background:#d33;color:#fff;border:1px solid #a00}"
+          "button.confirm{background:#d33;color:#fff;border:1px solid #a00;border-radius:4px}"
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
           ".logo img{height:38px;width:auto}"
           ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
@@ -350,7 +350,7 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "</h2><table id='descTable'><thead><tr>"
           "<th>");
     chunk(req, t("Akce"));
-    chunk(req, "</th><th>");
+    chunk(req, "</th><th style='width:150px;'>");
     chunk(req, t("Popis"));
     chunk(req,
           "</th></tr></thead><tbody></tbody></table>"
@@ -369,25 +369,25 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
     chunk(req, json ? json : "[]");
     chunk(req,
           ";"
-          "const tbody=document.querySelector('#descTable tbody');"
+          "const tbody = document.querySelector('#descTable tbody');"
           "function buildRow(d){"
-          " const tr=document.createElement('tr');"
-          " tr.innerHTML=`<td>${d.action}</td>"
-          " <td><input type='text' value='${d.desc.replace(/\"/g,'&quot;')}'></td>`;"
-          " tbody.appendChild(tr);"
+          "  const tr = document.createElement('tr');"
+          "  tr.innerHTML = `"
+          "<td>${d.action}</td>"
+          "<td>"
+          "<input"
+          " type=\"text\""
+          " maxlength=\"30\""
+          " value=\"${d.desc.replace(/\\\"/g,'&quot;')}\""
+          " style=\"width:100%;max-width:150px;box-sizing:border-box;\""
+          ">"
+          "</td>`;"
+          "  tbody.appendChild(tr);"
           "}"
-          "function render(){tbody.innerHTML='';initData.forEach(buildRow);} render();"
-
-          "document.getElementById('saveBtn').onclick=async()=>{"
-          "  const out=[...tbody.children].map(r=>({"
-          "     action : r.children[0].textContent.trim(),"
-          "     desc   : r.querySelector('input').value.trim().slice(0,30) /* 30 chars */"
-          "  }));"
-          "  try{"
-          "     const resp=await fetch('/descriptions',{method:'POST',"
-          "           headers:{'Content-Type':'application/json'},"
-          "           body:JSON.stringify(out)});"
-          "     alert(resp.ok?'");
+          "function render(){ tbody.innerHTML = ''; initData.forEach(buildRow); }"
+          "render();"
+          /* …rest of your code… */
+    );
     chunk(req, t("Uloženo"));
     chunk(req, "':'");
     chunk(req, t("Chyba při ukládání"));
@@ -685,7 +685,7 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
           "th,td{border:1px solid #ccc;padding:6px;text-align:center}"
           "th{background:#eee}"
           "button{padding:4px 10px;margin:2px}"
-          "button.confirm{background:#d33;color:#fff;border:1px solid #a00}"
+          "button.confirm{background:#d33;color:#fff;border:1px solid #a00;border-radius:4px}"
           ".wide{width:160px}"
           /* logo bar */
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
@@ -923,7 +923,7 @@ esp_err_t setup_post_handler(httpd_req_t *req) {
     }
 
     /* ----- read body --------------------------------------------------- */
-    char buf[2048];
+    char buf[3000];
     int len = httpd_req_recv(req, buf, sizeof(buf) - 1);
     if (len <= 0) return ESP_FAIL;
     buf[len] = 0;
@@ -1016,7 +1016,7 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
           "th,td{border:1px solid #ccc;padding:6px;text-align:center}"
           "th{background:#eee}"
           "button{padding:4px 10px;margin:2px}"
-          "button.confirm{background:#d33;color:#fff;border:1px solid #a00}"
+          "button.confirm{background:#d33;color:#fff;border:1px solid #a00;border-radius:4px}"
           ".wide{width:160px}"
           /* logo bar */
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
@@ -1162,7 +1162,6 @@ esp_err_t settings_post_handler(httpd_req_t *req) {
 
         nvs_flash_deinit();                  // close all open handles
         ESP_ERROR_CHECK(nvs_flash_erase());  // <-- one call erases everything
-        // ESP_ERROR_CHECK(nvs_flash_init());   // re-initialise for fresh use
         esp_restart();
 
         return ESP_OK;

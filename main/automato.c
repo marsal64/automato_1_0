@@ -1161,7 +1161,7 @@ static void evaluate_do(void* pv) {
                 bool result = false;
                 const char* op = w[i].operator;
 
-                if (strcmp(op, "==") == 0)
+                if (strcmp(op, "=") == 0)
                     result = (left_val == right_val);
                 else if (strcmp(op, "!=") == 0)
                     result = (left_val != right_val);
@@ -1744,6 +1744,13 @@ void app_main(void) {
     */
     rfp = 1;
 
+    // read or refreshs conditions from NVS
+    ESP_ERROR_CHECK(load_or_init_conditions());
+
+    // read or refreshs action descriptions  from NVS
+    ESP_ERROR_CHECK(load_or_init_actions());
+
+
     // start webserver
     start_webserver();
 
@@ -1791,11 +1798,6 @@ void app_main(void) {
     // initialize mDNS
     start_mdns_service();
 
-    // read or refreshs conditions from NVS
-    ESP_ERROR_CHECK(load_or_init_conditions());
-
-    // read or refreshs action descriptions  from NVS
-    ESP_ERROR_CHECK(load_or_init_actions());
 
     // set default language
 
