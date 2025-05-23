@@ -76,7 +76,16 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "    html { font-size: 12px; }"
           "    body { font-family: Arial, sans-serif; margin: 0; background: #fafafa; }"
 
-          "    /* wrapper */"
+          " html, body {"
+          "height: 100%;"
+          "margin: 0;"
+          "}"
+          "         body {"
+          "display: flex;"
+          "flex-direction: column;"
+          "}"
+
+
           "    .wrapper {"
           "      display: inline-block;"
           "      margin: 20px 0 0 20px;"
@@ -84,6 +93,7 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "      border: 1px solid #bbb;"
           "      padding: 0 20px 20px;"
           "      background: #fff;"
+          "    flex:1;"
           "    }"
 
           "    /* header row */"
@@ -144,11 +154,6 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "      color: #c00;"
           "    }"
 
-          "  .footer {"
-          "    font-size: 75%;"
-          "    padding-left: 10px;"
-          "  }"
-
           "  .hour-range { color: #777; }"
 
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
@@ -156,6 +161,17 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
 
           "button,input[type='button'], input[type='submit'] {  font-size: 0.75em;}"
+
+          "  .footer {"
+          "font-size: 75%;"
+          "padding: 10px;"
+          "background: #fafafa;"
+          "text-align: center;"
+          "position: sticky;"
+          " bottom: 0;"
+          "width: 100%;"
+          "  }"
+
 
           "  </style>");
 
@@ -303,14 +319,15 @@ esp_err_t root_get_handler(httpd_req_t *req) {
     }
     chunk(req, "</ul></div></div>"); /* close .actions, then .grid */
 
-    chunk(req, "</div>"); /* close .wrapper */
-
-    chunk(req, "</div>");  // close "page"
 
     /* ---------- log-off button --------------------------------------- */
     chunk(req, "<button class = 'logout' onclick='logoff()' style='margin:20px 0 0 40px;'>");
     chunk(req, t("Odhlásit"));
     chunk(req, "</button>");
+
+    chunk(req, "</div>");  /* close .wrapper */
+    chunk(req, "</div>");  // close "page"
+
     chunk(req, "<br><br><br>");
     chunk(req, "<div class='footer'>");
     chunk(req, lowline1);
@@ -412,7 +429,14 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "    html { font-size: 12px; }"
           "    body { font-family: Arial, sans-serif; margin: 0; background: #fafafa; }"
 
-          "    /* wrapper */"
+          " html, body {"
+          "height: 100%;"
+          "margin: 0;"
+          "}"
+          "         body {"
+          "display: flex;"
+          "flex-direction: column;"
+          "}"
           "    .wrapper {"
           "      display: inline-block;"
           "      margin: 20px 0 0 20px;"
@@ -420,6 +444,7 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "      border: 1px solid #bbb;"
           "      padding: 0 20px 20px;"
           "      background: #fff;"
+          "    flex:1;"
           "    }"
 
           "    /* header row */"
@@ -487,6 +512,17 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           ".logo img{height:38px;width:auto}"
           ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
 
+          "  .footer {"
+          "font-size: 75%;"
+          "padding: 10px;"
+          "background: #fafafa;"
+          "text-align: center;"
+          "position: sticky;"
+          " bottom: 0;"
+          "width: 100%;"
+          "  }"
+
+
           "  </style>");
     chunk(req,
           "</head><body>"
@@ -552,7 +588,15 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
     chunk(req,
           ":'+e);}"
           "};"
-          "</script></div></body></html>");
+          "</script></div>");
+
+    chunk(req, "<div class='footer'>");
+    chunk(req, lowline1);
+    chunk(req, "<br>");
+    chunk(req, lowline2);
+    chunk(req, "</div>");  // of class footer
+
+    chunk(req, "</body></html>");
 
     free(json);
     return httpd_resp_send_chunk(req, NULL, 0);
@@ -645,6 +689,7 @@ esp_err_t login_get_handler(httpd_req_t *req) {
                         "justify-content:center; align-items:center; height:100vh; margin:0; }"
                         "    form  { border:1px solid #ddd; padding:20px; box-shadow:2px 2px "
                         "5px rgba(0,0,0,0.2); }"
+
                         "  </style>"
                         "</head><body>"
                         "<form action=\"/login\" method=\"post\">"
@@ -830,6 +875,16 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
           "html { font-size: 12px; }"
           "body{font-family:Arial,sans-serif;margin:0;background:#"
           "fafafa}"
+
+          " html, body {"
+          "height: 100%;"
+          "margin: 0;"
+          "}"
+          "         body {"
+          "display: flex;"
+          "flex-direction: column;"
+          "}"
+
           /* common wrapper */
           ".wrapper{"
           "    margin:20px 0 0 20px;"
@@ -837,6 +892,7 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
           "    border:1px solid #bbb;"
           "    padding:0 20px 20px 20px;"
           "    background:#fff;"
+          "    flex:1;"
           "}");
 
     chunk(req,
@@ -857,6 +913,16 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
           ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
           ".headbar{display:flex;justify-content:space-between;align-items:"
           "center;height:46px;padding:0 8px;}"
+          "  .footer {"
+          "font-size: 75%;"
+          "padding: 10px;"
+          "background: #fafafa;"
+          "text-align: center;"
+          "position: sticky;"
+          " bottom: 0;"
+          "width: 100%;"
+          "  }"
+
           "</style>"
           "</head><body>"
           /* ---------- page header with logo (top‑left) ----------------- */
@@ -1036,8 +1102,8 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
     chunk(req,
           "'\n"
           "          : '");
-    chunk(req,
-          t("Pravá strana smí obsahovat pouze čísla a znaky + - * / . (používá se desetinná tečka, nikoli čárka)"));
+    chunk(req, t("Pravá strana smí obsahovat pouze čísla a znaky + - * / . (používá se desetinná tečka, "
+                 "nikoli čárka)"));
     chunk(req,
           "');\n"
           "    return;\n"
@@ -1065,7 +1131,14 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
 
     chunk(req, "</script>\n");
 
-    chunk(req, "</div></body></html>");
+    chunk(req, "</div>");
+    chunk(req, "<div class='footer'>");
+    chunk(req, lowline1);
+    chunk(req, "<br>");
+    chunk(req, lowline2);
+    chunk(req, "</div>");  // of class footer
+
+    chunk(req, "</body></html>");
 
     free(json); /* keep this line */
     return httpd_resp_send_chunk(req, NULL, 0);
@@ -1172,6 +1245,17 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
           "html { font-size: 12px; }"
           "body{font-family:Arial,sans-serif;margin:0;background:#"
           "fafafa}"
+
+          " html, body {"
+          "height: 100%;"
+          "margin: 0;"
+          "}"
+          "         body {"
+          "display: flex;"
+          "flex-direction: column;"
+          "}"
+
+
           /* common wrapper */
           ".wrapper{"
           "    margin:20px 0 0 20px;"
@@ -1179,6 +1263,7 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
           "    border:1px solid #bbb;"
           "    padding:0 20px 20px 20px;"
           "    background:#fff;"
+          "    flex:1;"
           "}"
           "table{width:100%;border-collapse:collapse;margin-top:10px}"
           "th,td{border:1px solid #ccc;padding:6px;text-align:center}"
@@ -1194,6 +1279,16 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
           ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
           ".headbar{display:flex;justify-content:space-between;align-items:"
           "center;height:46px;padding:0 8px;}"
+          "  .footer {"
+          "font-size: 75%;"
+          "padding: 10px;"
+          "background: #fafafa;"
+          "text-align: center;"
+          "position: sticky;"
+          " bottom: 0;"
+          "width: 100%;"
+          "  }"
+
           "</style>");
 
     chunk(req, "</head><body>");
@@ -1292,9 +1387,18 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
     chunk(req, "</form></div>");
 
     /* ---------- log‑off button --------------------------------------- */
+    chunk(req, "<br><br><br>");
     chunk(req, "<button onclick='logoff()' style='margin:20px 0 0 40px;'>");
     chunk(req, t("Odhlásit"));
     chunk(req, "</button>");
+
+    chunk(req, "<br><br><br>");
+    chunk(req, "<div class='footer'>");
+    chunk(req, lowline1);
+    chunk(req, "<br>");
+    chunk(req, lowline2);
+    chunk(req, "</div>");  // of class footer
+
 
     chunk(req, "</body></html>");
     return httpd_resp_send_chunk(req, NULL, 0);
