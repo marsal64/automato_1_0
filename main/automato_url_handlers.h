@@ -791,9 +791,13 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
           "    border:1px solid #bbb;"
           "    padding:0 20px 20px 20px;"
           "    background:#fff;"
-          "}"
-          "table{width:100%;border-collapse:collapse;margin-top:10px}"
-          "th,td{border:1px solid #ccc;padding:6px;text-align:center}"
+          "}");
+
+    chunk(req,
+
+          "table{width:100%;border-collapse:separate;margin-top:1px;border-spacing: 0 0px}"
+          "th,td{border:1px solid #ccc;padding:1px 8px;text-align:center}"
+
           "th{background:#eee}"
           "button{padding:4px 10px;margin:2px}"
           "button.confirm{background:#cc0000;color:#fff;border:1px solid #a00;border-radius:4px}"
