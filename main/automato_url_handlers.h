@@ -73,7 +73,7 @@ esp_err_t root_get_handler(httpd_req_t *req) {
 
     chunk(req,
           "  <style>"
-          "    html { font-size: 10px; }"
+          "    html { font-size: 12px; }"
           "    body { font-family: Arial, sans-serif; margin: 0; background: #fafafa; }"
 
           "    /* wrapper */"
@@ -371,7 +371,7 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "<title>automato</title>");
     chunk(req,
           "  <style>"
-          "    html { font-size: 10px; }"
+          "    html { font-size: 12px; }"
           "    body { font-family: Arial, sans-serif; margin: 0; background: #fafafa; }"
 
           "    /* wrapper */"
@@ -596,7 +596,7 @@ esp_err_t login_get_handler(httpd_req_t *req) {
                         "  <meta charset=\"UTF-8\">"
                         "  <title>%s</title>"
                         "  <style>"
-                        "html { font-size: 10px; }"
+                        "html { font-size: 12px; }"
                         "    body  { font-family:Arial,sans-serif; display:flex; "
                         "justify-content:center; align-items:center; height:100vh; margin:0; }"
                         "    form  { border:1px solid #ddd; padding:20px; box-shadow:2px 2px "
@@ -700,7 +700,7 @@ esp_err_t login_post_handler(httpd_req_t *req) {
                             "<title>automato redir</title>"
                             "</head>"
                             "<style>"
-                            "html { font-size: 10px; }"
+                            "html { font-size: 12px; }"
                             "body {"
                             "  font-family: Arial, sans-serif;"
                             "}"
@@ -783,7 +783,7 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
 
           /* ---------- CSS --------------------------------------------- */
           "<style>"
-          "html { font-size: 10px; }"
+          "html { font-size: 12px; }"
           "body{font-family:Arial,sans-serif;margin:0;background:#"
           "fafafa}"
           /* common wrapper */
@@ -1121,7 +1121,7 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
     chunk(req,
           /* ---------- CSS --------------------------------------------- */
           "<style>"
-          "html { font-size: 10px; }"
+          "html { font-size: 12px; }"
           "body{font-family:Arial,sans-serif;margin:0;background:#"
           "fafafa}"
           /* common wrapper */
