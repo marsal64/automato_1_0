@@ -82,6 +82,8 @@ static const translation cz_en[] = {
      "WiFi provisioning)</body></html>"},
     {"Maximální počet podmínek", "Maximum number of rows"},
     {"byl dosažen", "was achieved"},
+    {"Akce", "Action"},
+    {"Popisy akcí", "Actions description"},
     {"Maximální počet znaků na pravé straně je ",
      "Right side: max characters allowed is "},
     {"Pravá strana smí obsahovat pouze čísla a znaky + - * / .",

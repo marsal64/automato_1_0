@@ -7,7 +7,7 @@
 
 // Left sides list
 char *DEF_LEFTSIDES[]={
-    "OTEPH",
+    "EUROTE",
     ""  // sentinel
 };
 
@@ -21,17 +21,22 @@ char *DEF_OPERATORS[]={
     ""  // sentinel
 };
 
+typedef struct {
+    char action_name[31];  // action to be done
+    char action_desc[31];    // time of action
+} action_item;
+
 // Right sides list
-char *DEF_ACTIONS[]={
-    "REL1ON",
-    "REL1OFF",
-    "REL2ON",
-    "REL2OFF",
-    "REL3ON",
-    "REL3OFF",
-    "REDLEDON",
-    "REDLEDOFF",
-    ""  // sentinel
+action_item actions[]={
+    {"REL1ON","Relé 1 zapnuto"},
+    {"REL1OFF","Relé 1 vypnuto"},
+    {"REL2ON","Relé 2 zapnuto"},
+    {"REL2OFF","Relé 2 vypnuto"},
+    {"REL3ON","Relé 3 zapnuto"},
+    {"REL3OFF","Relé 3 vypnuto"},
+    {"REDLEDON","Červená LED rozsvícena"},
+    {"REDLEDOFF","Červená LED zhasnuta"},
+    {"",""}  // sentinel
 };
 
 
