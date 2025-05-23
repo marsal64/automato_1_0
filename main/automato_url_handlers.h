@@ -69,41 +69,83 @@ esp_err_t root_get_handler(httpd_req_t *req) {
     httpd_resp_set_type(req, "text/html; charset=UTF-8");
     chunk(req,
           "<!DOCTYPE html><html><head>"
-          "  <meta name='viewport' content='width=device-width, initial-scale=1'>"
+          "  <meta name='viewport' content='width=device-width, initial-scale=1'>");
+
+    chunk(req,
           "  <style>"
-          "    html{font-size:12px;}"
-          "    body{font-family:Arial,sans-serif;margin:0;background:#fafafa}"
-          "    /* inline-block wrapper will shrink to its content */"
-          "    .wrapper{display:inline-block;margin:20px 0 0 20px;"
-          "             max-width:860px;border:1px solid #bbb;"
-          "             padding:0 20px 20px 20px;background:#fff}"
-          "    .logo{display:flex;align-items:center;margin:20px 0 0 20px}"
-          "    .logo img{height:38px;width:auto}"
-          "    .logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
+          "    html { font-size: 10px; }"
+          "    body { font-family: Arial, sans-serif; margin: 0; background: #fafafa; }"
 
-          "    /* two-column grid, both tracks sized to their content */"
-          "    .grid{display:grid;"
-          "           grid-template-columns:max-content max-content;"
-          "           column-gap:2em;border-top:1px solid #bbb;}"
+          "    /* wrapper */"
+          "    .wrapper {"
+          "      display: inline-block;"
+          "      margin: 20px 0 0 20px;"
+          "      max-width: 860px;"
+          "      border: 1px solid #bbb;"
+          "      padding: 0 20px 20px;"
+          "      background: #fff;"
+          "    }"
 
-          "    /* prevent any line-wrap inside your lists */"
-          "    .prices li, .actions li{white-space:nowrap;}"
+          "    /* header row */"
+          "    .headbar {"
+          "      display: grid;"
+          "      grid-template-columns: max-content max-content max-content;"
+          "      align-items: center;"
+          "      height: 46px;"
+          "      padding: 0 8px;"
+          "      border-bottom: 1px solid #ccc;"
+          "      gap: .5em;}"
 
-          "    .prices, .actions{padding:6px;box-sizing:border-box}"
-          "    .actions{border-left:1px solid #bbb}"
-          "    .actions small{font-size:.75em;color:#555;bottom:5px}"
-          "    .prices b{color:#c00}"
-          "    .prices h3, .actions h3{margin:0; margin: 0; auto 8px; text-align: center;}"
+          "    .hb-controls {"
+          "      display: flex;"
+          "      justify-self: end;"
+          "      gap: .5em;}"
 
-          "    /* header row: three columns, each sized to content */"
-          "    .headbar{display:grid;"
-          "             grid-template-columns:max-content max-content max-content;"
-          "             align-items:center;height:46px;"
-          "             padding:0 8px;border-bottom:1px solid #ccc;"
-          "             gap:.5em}"
-          "    .hb-controls{display:flex;justify-self:end;gap:.5em}"
-          "    .headbar span{white-space:nowrap}"
-          "  </style>"
+          "    .headbar span {"
+          "      white-space: nowrap;"
+          "    }"
+
+          "    /* two-column grid */"
+          "    .grid {"
+          "      display: grid;"
+          "      grid-template-columns: max-content max-content;"
+          "      column-gap: 2em;"
+          "      border-top: 1px solid #bbb;"
+          "    }"
+          "    .prices,"
+          "    .actions {"
+          "      padding: 6px;"
+          "      box-sizing: border-box;"
+          "    }"
+
+          "    /* column headings */"
+          "    .prices h3,"
+          "    .actions h3 {"
+          "      margin: 0 0 .75em;"
+          "      text-align: center;"
+          "    }"
+
+          "    /* small descriptions */"
+          "    .actions small {"
+          "      display: block;"
+          "      margin: .25em 0 .75em;"
+          "      color: #555;"
+          "      font-size: .9em;"
+          "    }"
+
+          "    /* prevent line-wrap in lists */"
+          "    .prices li,"
+          "    .actions li {"
+          "      white-space: nowrap;"
+          "    }"
+
+          "    /* highlight current price */"
+          "    .prices b {"
+          "      color: #c00;"
+          "    }"
+          "  </style>");
+
+    chunk(req,
           "  <script>"
           "    function logoff(){location.href='/logout';}"
           "    function updateDom(d){"
@@ -321,10 +363,10 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
     chunk(req,
           "<!DOCTYPE html><html lang='cs'><head>"
           "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-          "<title>Automato</title>");
+          "<title>Popisy akcí</title>");
     chunk(req,
           "  <style>"
-          "    html { font-size: 8px; }"
+          "    html { font-size: 10px; }"
           "    body { font-family: Arial, sans-serif; margin: 0; background: #fafafa; }"
 
           "    /* wrapper */"
@@ -345,12 +387,12 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "      height: 46px;"
           "      padding: 0 8px;"
           "      border-bottom: 1px solid #ccc;"
-          "      gap: .5em;"
+          "      gap: .5em;}"
 
           "    .hb-controls {"
           "      display: flex;"
           "      justify-self: end;"
-          "      gap: .5em;"
+          "      gap: .5em;}"
 
           "    .headbar span {"
           "      white-space: nowrap;"
@@ -394,69 +436,70 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "    .prices b {"
           "      color: #c00;"
           "    }"
-          "  </style>"
+          "  </style>");
+    chunk(req,
           "</head><body>"
-          "<div class='logo'><img src='/logo' alt='automato'><span>automato</span></div>"
+          "<div class='logo'><img src='/logo' alt='automato'></div>"
           "<div class='wrapper'><h2>");
-          chunk(req, t("Popisy akcí"));
-          chunk(req,
-                "</h2><table id='descTable'><thead><tr>"
-                "<th>");
-          chunk(req, t("Akce"));
-          chunk(req, "</th><th style='width:150px;'>");
-          chunk(req, t("Popis"));
-          chunk(req,
-                "</th></tr></thead><tbody></tbody></table>"
-                "<button id='backBtn' onclick=\"location.href='/'\" "
-                "style='float:right;margin-left:8px;'>");
-          chunk(req, t("Zpět"));
-          chunk(req,
-                "</button>"
-                "<button id='saveBtn' class='confirm' style='float:right;'>");
-          chunk(req, t("Potvrzení"));
-          chunk(req,
-                "</button><br style='clear:both'>"
+    chunk(req, t("Popisy akcí"));
+    chunk(req,
+          "</h2><table id='descTable'><thead><tr>"
+          "<th>");
+    chunk(req, t("Akce"));
+    chunk(req, "</th><th style='width:150px;'>");
+    chunk(req, t("Popis"));
+    chunk(req,
+          "</th></tr></thead><tbody></tbody></table>"
+          "<button id='backBtn' onclick=\"location.href='/'\" "
+          "style='float:right;margin-left:8px;'>");
+    chunk(req, t("Zpět"));
+    chunk(req,
+          "</button>"
+          "<button id='saveBtn' class='confirm' style='float:right;'>");
+    chunk(req, t("Potvrzení"));
+    chunk(req,
+          "</button><br style='clear:both'>"
 
-                "<script>"
-                "const initData = ");
-          chunk(req, json ? json : "[]");
-          chunk(req,
-                ";"
-                "const tbody=document.querySelector('#descTable tbody');"
-                "function buildRow(d){"
-                " const tr=document.createElement('tr');"
-                " tr.innerHTML=`<td>${d.action}</td>"
-                " <td><input type='text' value='${d.desc.replace(/\"/g,'&quot;')}'></td>`;"
-                " tbody.appendChild(tr);"
-                "}"
-                "function render(){tbody.innerHTML='';initData.forEach(buildRow);} render();"
+          "<script>"
+          "const initData = ");
+    chunk(req, json ? json : "[]");
+    chunk(req,
+          ";"
+          "const tbody=document.querySelector('#descTable tbody');"
+          "function buildRow(d){"
+          " const tr=document.createElement('tr');"
+          " tr.innerHTML=`<td>${d.action}</td>"
+          " <td><input type='text' value='${d.desc.replace(/\"/g,'&quot;')}'></td>`;"
+          " tbody.appendChild(tr);"
+          "}"
+          "function render(){tbody.innerHTML='';initData.forEach(buildRow);} render();"
 
-                "document.getElementById('saveBtn').onclick=async()=>{"
-                "  const out=[...tbody.children].map(r=>({"
-                "     action : r.children[0].textContent.trim(),"
-                "     desc   : r.querySelector('input').value.trim().slice(0,30) /* 30 chars */"
-                "  }));"
-                "  try{"
-                "     const resp=await fetch('/descriptions',{method:'POST',"
-                "           headers:{'Content-Type':'application/json'},"
-                "           body:JSON.stringify(out)});"
-                "     alert(resp.ok?'");
+          "document.getElementById('saveBtn').onclick=async()=>{"
+          "  const out=[...tbody.children].map(r=>({"
+          "     action : r.children[0].textContent.trim(),"
+          "     desc   : r.querySelector('input').value.trim().slice(0,30) /* 30 chars */"
+          "  }));"
+          "  try{"
+          "     const resp=await fetch('/descriptions',{method:'POST',"
+          "           headers:{'Content-Type':'application/json'},"
+          "           body:JSON.stringify(out)});"
+          "     alert(resp.ok?'");
 
 
-          chunk(req, t("Uloženo"));
-          chunk(req, "':'");
-          chunk(req, t("Chyba při ukládání"));
-          chunk(req,
-                "');"
-                "  }catch(e){alert('");
-          chunk(req, t("Chyba"));
-          chunk(req,
-                ":'+e);}"
-                "};"
-                "</script></div></body></html>");
+    chunk(req, t("Uloženo"));
+    chunk(req, "':'");
+    chunk(req, t("Chyba při ukládání"));
+    chunk(req,
+          "');"
+          "  }catch(e){alert('");
+    chunk(req, t("Chyba"));
+    chunk(req,
+          ":'+e);}"
+          "};"
+          "</script></div></body></html>");
 
-          free(json);
-          return httpd_resp_send_chunk(req, NULL, 0);
+    free(json);
+    return httpd_resp_send_chunk(req, NULL, 0);
 }
 
 /* ----------------------------------------------------------------------
