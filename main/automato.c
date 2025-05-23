@@ -918,7 +918,18 @@ void start_mdns_service() {
     // set hostname
     mdns_hostname_set("automato");
     // set default instance
-    mdns_instance_name_set("Automato");
+    mdns_instance_name_set("automato");
+
+    mdns_service_add(
+        "Automato HTTP",    // service instance name
+        "_http",            // service type
+        "_tcp",             // protocol
+        80,                 // service port
+        NULL,               // TXT records (none)
+        0                   // number of TXT records
+    );
+
+
 }
 
 // Actions
