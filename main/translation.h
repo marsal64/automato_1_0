@@ -83,6 +83,7 @@ static const translation cz_en[] = {
     {"Maximální počet podmínek", "Maximum number of rows"},
     {"byl dosažen", "was achieved"},
     {"Akce", "Action"},
+    {"Popis", "Description"},
     {"Popisy akcí", "Actions description"},
     {"Maximální počet znaků na pravé straně je ",
      "Right side: max characters allowed is "},

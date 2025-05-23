@@ -86,6 +86,7 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           ".prices,.actions{border-top:1px solid "
           "#bbb;padding:6px;box-sizing:border-box}"
           ".actions{border-left:1px solid #bbb}"
+          ".actions small{font-size:0.75em;color:#555}"
           ".prices b{color:#c00}"
           /* centre both column headings */
           ".prices h3,.actions h3{margin:0 0 8px 0;text-align:center}"
@@ -113,14 +114,17 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "     ulp.appendChild(li);\n"
           "  });\n"
           "  /* actions */\n"
-          "  const ula=document.getElementById('actions-list'); "
-          "ula.innerHTML='';\n"
-          "  d.actions.forEach(a=>{\n"
-          "     const li=document.createElement('li');\n"
-          "     li.innerHTML = a.action + '&nbsp;&rarr;&nbsp;' + a.timestamp;\n"
-          "     ula.appendChild(li);\n"
+
+          "  /* actions --------------------------------------------------------- */\n"
+          "  const ula = document.getElementById('actions-list');\n"
+          "  ula.innerHTML = '';\n"
+          "  d.actions.forEach(a => {\n"
+          "      const li = document.createElement('li');\n"
+          "      li.innerHTML = a.action + '&nbsp;&rarr;&nbsp;' + a.timestamp +\n"
+          "                     (a.desc ? ' <small>&nbsp;' + a.desc + '</small>' : '');\n"
+          "      ula.appendChild(li);\n"
           "  });\n"
-          "}\n"
+
           "async function fetchData(){\n"
           "  try{\n"
           "    const r=await fetch('/data');\n"
@@ -207,10 +211,20 @@ esp_err_t root_get_handler(httpd_req_t *req) {
     chunk(req, "<div class='actions'><h3>");
     chunk(req, t("Akce&nbsp;&rarr;&nbsp;naposledy aktivováno"));
     chunk(req, "</h3><ul id='actions-list' style='margin:0;padding-left:1em;'>");
+
     for (int i = 0; i < NUMLASTACTIONSLOG && last_actions_log[i].action[0]; ++i) {
+        const char *desc = "";
+        for (int k = 0; actions[k].action_name[0]; ++k)
+            if (strcmp(actions[k].action_name, last_actions_log[i].action) == 0) {
+                desc = actions[k].action_desc;
+                break;
+            }
         char line[512];
-        snprintf(line, sizeof(line), "<li>%s&nbsp;&rarr;&nbsp;%s</li>", last_actions_log[i].action,
-                 last_actions_log[i].timestamp);
+        snprintf(line, sizeof(line), "<li>%s&nbsp;&rarr;&nbsp;%s%s%s%s</li>", last_actions_log[i].action, /* %s #1 */
+                 last_actions_log[i].timestamp,                                                           /* %s #2 */
+                 desc[0] ? " &nbsp;<small>" : "", /* %s #3 – open <small> only if we have a desc */
+                 desc[0] ? desc : "",             /* %s #4 – the description itself            */
+                 desc[0] ? "</small>" : "");      /* %s #5 – close it again                    */
         chunk(req, line);
     }
 
@@ -438,8 +452,18 @@ esp_err_t data_get_handler(httpd_req_t *req) {
     }
     APP("],\"actions\":[");
     for (int i = 0; i < NUMLASTACTIONSLOG && last_actions_log[i].action[0]; ++i) {
-        APP("{\"action\":\"%s\",\"timestamp\":\"%s\"}%s", last_actions_log[i].action, last_actions_log[i].timestamp,
-            (i + 1 < NUMLASTACTIONSLOG && last_actions_log[i + 1].action[0] ? "," : ""));
+        const char *desc = "";
+        for (int k = 0; actions[k].action_name[0]; ++k)
+            if (strcmp(actions[k].action_name, last_actions_log[i].action) == 0) {
+                desc = actions[k].action_desc;
+                break;
+            }
+
+        /* ---------- compose JSON ----------------------------------------- */
+        APP("{\"action\":\"%s\",\"timestamp\":\"%s\",\"desc\":\"%s\"}%s", last_actions_log[i].action, /* %s #1 */
+            last_actions_log[i].timestamp,                                                            /* %s #2 */
+            desc,                                                                         /* %s #3 – plain text only */
+            (i + 1 < NUMLASTACTIONSLOG && last_actions_log[i + 1].action[0]) ? "," : ""); /* %s #4 */
     }
     APP("]}");
 
