@@ -429,14 +429,6 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "    html { font-size: 12px; }"
           "    body { font-family: Arial, sans-serif; margin: 0; background: #fafafa; }"
 
-          " html, body {"
-          "height: 100%;"
-          "margin: 0;"
-          "}"
-          "         body {"
-          "display: flex;"
-          "flex-direction: column;"
-          "}"
           "    .wrapper {"
           "      display: inline-block;"
           "      margin: 20px 0 0 20px;"
@@ -444,7 +436,6 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "      border: 1px solid #bbb;"
           "      padding: 0 20px 20px;"
           "      background: #fff;"
-          "    flex:1;"
           "    }"
 
           "    /* header row */"
@@ -1234,66 +1225,70 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
 
     chunk(req, "<!DOCTYPE html><html><head>");
 
+    /* ---------- small script for logoff ----------------------------- */
     chunk(req,
           "<script>"
-          "function logoff(){location.href='/logout';}\n"
+          "function logoff(){location.href='/logout';}"
           "</script>");
 
+    /* ---------- CSS ------------------------------------------------- */
     chunk(req,
-          /* ---------- CSS --------------------------------------------- */
           "<style>"
-          "html { font-size: 12px; }"
-          "body{font-family:Arial,sans-serif;margin:0;background:#"
-          "fafafa}"
-
           " html, body {"
-          "height: 100%;"
-          "margin: 0;"
-          "}"
-          "         body {"
-          "display: flex;"
-          "flex-direction: column;"
-          "}"
-
-
-          /* common wrapper */
-          ".wrapper{"
-          "    margin:20px 0 0 20px;"
-          "    max-width:600px;"
-          "    border:1px solid #bbb;"
-          "    padding:0 20px 20px 20px;"
-          "    background:#fff;"
-          "    flex:1;"
-          "}"
-          "table{width:100%;border-collapse:collapse;margin-top:10px}"
-          "th,td{border:1px solid #ccc;padding:6px;text-align:center}"
-
-          "th{background:#eee}"
-          "button{padding:4px 10px;margin:2px}"
-          "button.confirm{background:#cc0000;color:#fff;border:1px solid #a00;border-radius:4px}"
-          "button, input[type='button'], input[type='submit'] { font-size: 0.75em; }"
-          ".wide{width:160px}"
-
-          ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
-          ".logo img{height:38px;width:auto}"
-          ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
-          ".headbar{display:flex;justify-content:space-between;align-items:"
-          "center;height:46px;padding:0 8px;}"
-          "  .footer {"
-          "font-size: 75%;"
-          "padding: 10px;"
-          "background: #fafafa;"
-          "text-align: center;"
-          "position: sticky;"
-          " bottom: 0;"
-          "width: 100%;"
-          "  }"
-
+          "   font-family: Arial, sans-serif;"
+          "   font-size: 12px;"
+          "   margin: 0; padding: 0;"
+          "   height: 100%;"
+          " }"
+          " body { display: flex; flex-direction: column; align-items: stretch; }"
+          " .logo { display: flex; align-items: center; margin: 20px 0 0 20px; }"
+          " .logo img { height: 38px; width: auto; }"
+          " .logo span {"
+          "   font-weight: bold;"
+          "   font-size: 1.4rem;"
+          "   margin-left: 8px;"
+          " }"
+          " .wrapper {"
+          "   margin: 20px;"
+          "   max-width: 600px;"
+          "   border: 1px solid #bbb;"
+          "   padding: 20px;"
+          "   background: #fff;"
+          "   /* height auto, will grow to contents */"
+          " }"
+          " table { width: 100%; border-collapse: collapse; margin-top: 10px; }"
+          " th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }"
+          " th { background: #eee; }"
+          " button {"
+          "   padding: 4px 10px;"
+          "   margin: 2px;"
+          "   font-size: 0.75em;"
+          " }"
+          " button.confirm {"
+          "   background: #cc0000;"
+          "   color: #fff;"
+          "   border: 1px solid #a00;"
+          "   border-radius: 4px;"
+          " }"
+          " .wide { width: 160px; }"
+          " .footer {"
+          "   font-size: 75%;"
+          "   padding: 10px;"
+          "   background: #fafafa;"
+          "   text-align: center;"
+          "   position: sticky;"
+          "   bottom: 0;"
+          "   width: 100%;"
+          " }"
+          " /* prevent the logout button stretching full-width */"
+          " button.logout {"
+          "   align-self: flex-start;"
+          " }"
           "</style>");
 
     chunk(req, "</head><body>");
 
-    /* ---------- page header with logo (top‑left) ----------------- */
+    /* ---------- header logo ----------------------------------------- */
     chunk(req,
           "<div class='logo'>"
           "<img src='/logo' alt='automato'>"
@@ -1302,107 +1297,105 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
     chunk(req,
           "</span>"
           "</div>");
+
+    /* ---------- main content wrapper ------------------------------- */
     chunk(req, "<div class='wrapper'>");
-    // form start
     chunk(req, "<form action='/settings' method='post'>");
 
+    /* title + instructions */
     chunk(req, "<h2 align='center'>");
     chunk(req, t("Uživatelská nastavení"));
     chunk(req, "</h2>");
-
-    // language selector
     chunk(req, t("Změny potvrďte stiskem tlačítka 'Potvrzení'"));
+    chunk(req, "<br><br><br>");
+
+    /* language selector */
     chunk(req,
-          "<br><br><br><label>Jazyk/language:&nbsp;</label>"
+          "<label>Jazyk/language:&nbsp;</label>"
           "<select name='lang'>"
           "<option value='0'");
-    if (gst_lang == LANG_CZ) chunk(req, "selected");
+    if (gst_lang == LANG_CZ) chunk(req, " selected");
     chunk(req,
           ">Česky</option>"
           "<option value='1'");
-    if (gst_lang == LANG_EN) chunk(req, "selected");
+    if (gst_lang == LANG_EN) chunk(req, " selected");
     chunk(req,
           ">English</option>"
           "</select><br><br>");
 
-    // password fields
+    /* password fields */
     chunk(req, t("Nové heslo uživatele automato:"));
     chunk(req, "&nbsp;<input type='password' name='user_pass' value=''><br><br>");
-    // servis only if service user
     if (current_user_id == 1) {
         chunk(req, t("Nové heslo uživatele servis:"));
         chunk(req, "&nbsp;<input type='password' name='serv_pass' value=''><br><br>");
     } else {
-        // hidden
         chunk(req, "<input type='hidden' name='serv_pass' value=''>");
     }
 
-    // if user id is 1 (servis), allow to edit Line2
+    /* optional contact line (service user) */
     if (current_user_id == 1) {
-        chunk(req, "<br><br><label>");
-        chunk(req, t("Řádek kontaktu:"));
-
-        // single‐line input with maxlength
         char maxlen_buf[16];
         snprintf(maxlen_buf, sizeof(maxlen_buf), "%d", LOWLINE2_MAXLEN);
-
-        chunk(req, "<input type='text' name='lowline2' maxlength='");
+        chunk(req, "<label>");
+        chunk(req, t("Řádek kontaktu:"));
+        chunk(req,
+              "</label>&nbsp;"
+              "<input type='text' name='lowline2' maxlength='");
         chunk(req, maxlen_buf);
         chunk(req, "' value='");
         chunk(req, lowline2);
-        chunk(req, "' style='width:100%;'><br><br>\n");
+        chunk(req, "' style='width:100%;'><br><br>");
     } else {
-        // hidden
         chunk(req, "<input type='hidden' name='lowline2' value=''>");
     }
 
-    // buttons
+    /* back & confirm buttons */
     chunk(req,
-          "<button id='backBtn' type='button'"
-          " onclick=\"window.location.href='/'\""
-          " style='float:right;margin-left:8px;'>");
+          "<button id='backBtn' type='button' "
+          "onclick=\"window.location.href='/'\" "
+          "style='float:right;margin-left:8px;'>");
     chunk(req, t("Zpět"));
     chunk(req, "</button>");
-
-    chunk(req, "<button type='submit' class='confirm' style='float:right;margin-left:8px;'>");
+    chunk(req,
+          "<button type='submit' class='confirm' "
+          "style='float:right;margin-left:8px;'>");
     chunk(req, t("Potvrzení"));
     chunk(req, "</button>");
 
-
-
-    // is "servis" - allow nvs wipe out
+    /* factory reset (service only) */
     if (current_user_id == 1) {
         chunk(req, "<br><br><br><br>");
-        chunk(req, t("Pozor, stiskem tlačítka níže změníte všechna nastavení "
-                     "na výchozí "
+        chunk(req, t("Pozor, stiskem tlačítka níže změníte všechna nastavení na výchozí "
                      "a restartujete zařízení (nutno znovu připojit na wifi)"));
         chunk(req, "<br>");
-        // Make sure we give it a name and value:
         chunk(req, "<button type='submit' name='wipe' value='1'>");
         chunk(req, t("Výchozí nastavení (!)"));
         chunk(req, "</button>");
     }
 
-    //
-    chunk(req, "</form></div>");
+    /* close form & wrapper */
+    chunk(req, "</form>");
+    chunk(req, "</div>");  // .wrapper
 
-    /* ---------- log‑off button --------------------------------------- */
-    chunk(req, "<br><br><br>");
-    chunk(req, "<button onclick='logoff()' style='margin:20px 0 0 40px;'>");
+    /* ---------- logout button, now normal size --------------------- */
+    chunk(req,
+          "<button class='logout' onclick='logoff()' "
+          "style='margin:20px 0 0 40px;'>");
     chunk(req, t("Odhlásit"));
     chunk(req, "</button>");
 
-    chunk(req, "<br><br><br>");
+    /* ---------- sticky footer -------------------------------------- */
     chunk(req, "<div class='footer'>");
     chunk(req, lowline1);
     chunk(req, "<br>");
     chunk(req, lowline2);
-    chunk(req, "</div>");  // of class footer
-
+    chunk(req, "</div>");
 
     chunk(req, "</body></html>");
     return httpd_resp_send_chunk(req, NULL, 0);
 }
+
 
 static char hexval(char c) {
     if (c >= '0' && c <= '9')
