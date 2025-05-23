@@ -247,28 +247,39 @@ esp_err_t root_get_handler(httpd_req_t *req) {
     chunk(req,
           "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>"
           "<div class='hb-controls'>"
+
           "<form action='/setup' method='get' style='margin:0'>"
           "<button>");
     chunk(req, t("Podmínky akcí"));
     chunk(req,
           "</button>"
           "</form>"
+
           "<form action='/descriptions' method='get' style='margin:0'>"
           "<button>");
     chunk(req, t("Popisy akcí"));
 
     chunk(req,
           "</button>"
-
           "</form>"
+
           "<form action='/settings' method='get' style='margin:0'>"
           "<button>");
     chunk(req, t("Nastavení"));
     chunk(req,
           "</button>"
           "</form>"
+
+          "<form action='/logout' method='get' style='margin:0'>"
+          "<button>");
+    chunk(req, t("Odhlásit"));
+    chunk(req,
+          "</button>"
+          "</form>"
+
           "</div>"
           "</div>");
+
 
     /* ---------- grid row --------------------------------------------- */
     chunk(req, "<div class='grid'>");
@@ -320,10 +331,6 @@ esp_err_t root_get_handler(httpd_req_t *req) {
     chunk(req, "</ul></div></div>"); /* close .actions, then .grid */
 
 
-    /* ---------- log-off button --------------------------------------- */
-    chunk(req, "<button class = 'logout' onclick='logoff()' style='margin:20px 0 0 40px;'>");
-    chunk(req, t("Odhlásit"));
-    chunk(req, "</button>");
 
     chunk(req, "</div>");  /* close .wrapper */
     chunk(req, "</div>");  // close "page"
