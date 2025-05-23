@@ -148,6 +148,8 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           ".logo img{height:38px;width:auto}"
           ".logo span{font-weight:bold;font-size:1.4rem;margin-left:8px}"
 
+          "button,input[type='button'], input[type='submit'] {  font-size: 0.75em;}"
+
           "  </style>");
 
     chunk(req,
@@ -185,7 +187,8 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "<body>"
           "  <div class='page'>"
           "  <div class='logo'>"
-          "    <img src='/logo' alt='automato'><span>automato</span>"
+          "    <img src='/logo' alt='automato'><span>" MAIN_TITLE
+          "</span>"
           "  </div>"
           "  <div class='wrapper'>");
 
@@ -207,10 +210,10 @@ esp_err_t root_get_handler(httpd_req_t *req) {
     chunk(req, dt_buf);
     chunk(req,
           "</span>"
-          "<span id='ipaddr'>");
+          "<span id='ipaddr'>&nbsp;&nbsp;");
     chunk(req, ipaddress);
     chunk(req,
-          "</span>"
+          "&nbsp;&nbsp;</span>"
           "<div class='hb-controls'>"
           "<form action='/setup' method='get' style='margin:0'>"
           "<button>");
@@ -443,6 +446,7 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "    }"
 
           "button.confirm{background:#cc0000;color:#fff;border:1px solid #a00;border-radius:4px}"
+          "button, input[type='button'], input[type='submit'] { font-size: 0.75em; }"
 
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
           ".logo img{height:38px;width:auto}"
@@ -451,7 +455,8 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "  </style>");
     chunk(req,
           "</head><body>"
-          "<div class='logo'><img src='/logo' alt='automato'><span>automato</span></div>"
+          "<div class='logo'><img src='/logo' alt='automato'><span>" MAIN_TITLE
+          "</span></div>"
           "<div class='wrapper'><h2>");
     chunk(req, t("Popisy akcí"));
     chunk(req,
@@ -805,6 +810,7 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
           "button{padding:4px 10px;margin:2px}"
           "button.confirm{background:#cc0000;color:#fff;border:1px solid #a00;border-radius:4px}"
           "button.del{padding:2px 6px;margin:0 2px;line-height:1;}"
+          "button, input[type='button'], input[type='submit'] { font-size: 0.75em; }"
           ".wide{width:160px}"
           /* logo bar */
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
@@ -818,7 +824,7 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
           "<div class='logo'>"
           "<img src='/logo' alt='automato'>"
           "<span>");
-    chunk(req, t("automato"));
+    chunk(req, t(MAIN_TITLE));
     chunk(req,
           "</span>"
           "</div>"
@@ -832,7 +838,7 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
           "<th>");
     chunk(req, t("Povoleno"));
     chunk(req, "</th><th>");
-    chunk(req, t("Levá strana"));
+    chunk(req, t("Porovnat co"));
     chunk(req, "</th><th>");
     chunk(req, t("Podmínka"));
     chunk(req, "</th><th>");
@@ -1138,6 +1144,7 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
           "th{background:#eee}"
           "button{padding:4px 10px;margin:2px}"
           "button.confirm{background:#cc0000;color:#fff;border:1px solid #a00;border-radius:4px}"
+          "button, input[type='button'], input[type='submit'] { font-size: 0.75em; }"
           ".wide{width:160px}"
 
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
@@ -1154,7 +1161,7 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
           "<div class='logo'>"
           "<img src='/logo' alt='automato'>"
           "<span>");
-    chunk(req, t("automato"));
+    chunk(req, t(MAIN_TITLE));
     chunk(req,
           "</span>"
           "</div>");

@@ -4,6 +4,7 @@
 
 // Firmware version
 #define FW_VERSION "automato_1_0"
+#define MAIN_TITLE "automato 1.0"
 
 // Left sides list
 char *DEF_LEFTSIDES[]={

@@ -70,12 +70,10 @@ static const translation cz_en[] = {
      "Caution, if you press the button below, all settings will be initiated "
      "to default and the device will be restarted. WiFi provisioning needed "
      "again."},
-    {"Změny potvrďte stiskem tlačítka 'Potvrzení'",
-     "Confirm any change pressing the button 'Confirm'"},
+    {"Změny potvrďte stiskem tlačítka 'Potvrzení'", "Confirm any change pressing the button 'Confirm'"},
     {"Zpět", "Back"},
     {"Uživatelská nastavení", "User settings"},
-    {"Akce&nbsp;&rarr;&nbsp;naposledy aktivováno",
-     "Action&nbsp;&rarr;&nbsp;last activation timestamp"},
+    {"Akce&nbsp;&rarr;&nbsp;naposledy aktivováno", "Action&nbsp;&rarr;&nbsp;last activation timestamp"},
     {"<html><body>Výchozí nastavení, restartuji zařízení (po restartu připojte "
      "na WiFi)</body></html>",
      "<html><body>Default settings, restarting the device (after restart, do "
@@ -84,9 +82,11 @@ static const translation cz_en[] = {
     {"byl dosažen", "was achieved"},
     {"Akce", "Action"},
     {"Popis", "Description"},
+    {MAIN_TITLE, MAIN_TITLE},
+    {"Akce → naposledy aktivováno", "Action → activated last time"},
+
     {"Popisy akcí", "Actions description"},
-    {"Maximální počet znaků na pravé straně je ",
-     "Right side: max characters allowed is "},
+    {"Maximální počet znaků na pravé straně je ", "Right side: max characters allowed is "},
     {"Pravá strana smí obsahovat pouze čísla a znaky + - * / .",
      "Right side can hold only numbers and characters + - * / ."},
 
@@ -102,8 +102,7 @@ const char *t(const char *instr) {
 
     /* Sequential search in the table (tiny, so fine) */
     for (size_t i = 0; cz_en[i].cz[0] != '\0'; ++i) {
-        if (strcmp(instr, cz_en[i].cz) == 0)
-            return cz_en[i].en; /* match found */
+        if (strcmp(instr, cz_en[i].cz) == 0) return cz_en[i].en; /* match found */
     }
 
     return instr; /* not found → fall back to original */
