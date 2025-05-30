@@ -155,6 +155,7 @@ esp_err_t root_get_handler(httpd_req_t *req) {
           "    }"
 
           "  .hour-range { color: #777; }"
+          ".prices b .hour-range { color:#c00; }"
 
           ".logo{display:flex;align-items:center;margin:20px 0 0 20px}"
           ".logo img{height:38px;width:auto}"
@@ -337,9 +338,9 @@ esp_err_t root_get_handler(httpd_req_t *req) {
 
     chunk(req, "<br><br><br>");
     chunk(req, "<div class='footer'>");
-    chunk(req, lowline1);
+    chunk(req, t(lowline1));
     chunk(req, "<br>");
-    chunk(req, lowline2);
+    chunk(req, t(lowline2));
     chunk(req, "</div>");  // of class footer
 
     /* ---------- close document --------------------------------------- */
@@ -589,9 +590,9 @@ esp_err_t descriptions_get_handler(httpd_req_t *req) {
           "</script></div>");
 
     chunk(req, "<div class='footer'>");
-    chunk(req, lowline1);
+    chunk(req, t(lowline1));
     chunk(req, "<br>");
-    chunk(req, lowline2);
+    chunk(req, t(lowline2));
     chunk(req, "</div>");  // of class footer
 
     chunk(req, "</body></html>");
@@ -1131,9 +1132,9 @@ esp_err_t setup_get_handler(httpd_req_t *req) {
 
     chunk(req, "</div>");
     chunk(req, "<div class='footer'>");
-    chunk(req, lowline1);
+    chunk(req, t(lowline1));
     chunk(req, "<br>");
-    chunk(req, lowline2);
+    chunk(req, t(lowline2));
     chunk(req, "</div>");  // of class footer
 
     chunk(req, "</body></html>");
@@ -1351,7 +1352,7 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
               "<input type='text' name='lowline2' maxlength='");
         chunk(req, maxlen_buf);
         chunk(req, "' value='");
-        chunk(req, lowline2);
+        chunk(req, t(lowline2));
         chunk(req, "' style='width:100%;'><br><br>");
     } else {
         chunk(req, "<input type='hidden' name='lowline2' value=''>");
@@ -1394,9 +1395,9 @@ esp_err_t settings_get_handler(httpd_req_t *req) {
 
     /* ---------- sticky footer -------------------------------------- */
     chunk(req, "<div class='footer'>");
-    chunk(req, lowline1);
+    chunk(req, t(lowline1));
     chunk(req, "<br>");
-    chunk(req, lowline2);
+    chunk(req, t(lowline2));
     chunk(req, "</div>");
 
     chunk(req, "</body></html>");
@@ -1558,6 +1559,8 @@ httpd_handle_t start_webserver(void) {
     config.stack_size = 50000;
     config.max_uri_handlers = 30;
     config.task_priority = configMAX_PRIORITIES - 1;  // Set to desired priority
+    config.lru_purge_enable = true;  // Enable LRU purge to free up memory
+    config.max_open_sockets  = 12;
 
     if (httpd_start(&server, &config) == ESP_OK) {
         httpd_uri_t root_uri = {.uri = "/", .method = HTTP_GET, .handler = root_get_handler, .user_ctx = NULL};

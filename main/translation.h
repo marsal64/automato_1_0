@@ -20,8 +20,8 @@ typedef struct {
 
 static const translation cz_en[] = {
     {"Vypnuto", "Off"},
-    {"automato 1.0. Úpravy funkčnosti při změně formátu vstupních dat OTE nebo jiných změnách provozních podmínek jsou řešeny v "
-     "rámci zakoupené podpory.",
+    {"automato 1.0. Úpravy funkčnosti při změně formátu vstupních dat OTE nebo jiných změnách provozních podmínek jsou "
+     "řešeny v rámci zakoupené podpory.",
      "automato 1.0. Functional changes based on the change of the input conditions are covered by the purchased "
      "support."},
     {"Zapnuto", "On"},
@@ -29,6 +29,7 @@ static const translation cz_en[] = {
     {"Přihlásit", "Login"},
     {"Neúspěšné přihlášení", "Unsuccessful login"},
     {"Automato - přihlášení obsluhy", "Automato - login"},
+    {"automato - přihlášení obsluhy", "automato - login"},
     {"Uživatelské jméno", "Username"},
     {"Heslo", "Password"},
     {"Automato", "Automato"},

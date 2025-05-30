@@ -1894,12 +1894,14 @@ void app_main(void) {
         }
 
         // keepalive status message
+        uint32_t heapsize = esp_get_free_heap_size();
         ESP_LOGI(TAG,
-                 "ip: %s, MAC: %s, "
-                 "prod.num.: %s, errors: comm=%d "
-                 "wifi_prov=%d "
-                 "wifi_conn=%d",
-                 ipaddress, mac_string, vyrobnicislo, comm_status, !provisioned, !device_connected);
+                 "ip:%s,MAC:%s, "
+                 "prod.num.:%s,errors: comm=%d,"
+                 "wifi_prov=%d,"
+                 "wifi_conn=%d,"
+                 "free heap:%ld",
+                 ipaddress, mac_string, vyrobnicislo, comm_status, !provisioned, !device_connected, heapsize);
 
         // development - helper logging
 
