@@ -920,16 +920,13 @@ void start_mdns_service() {
     // set default instance
     mdns_instance_name_set("automato");
 
-    mdns_service_add(
-        "Automato HTTP",    // service instance name
-        "_http",            // service type
-        "_tcp",             // protocol
-        80,                 // service port
-        NULL,               // TXT records (none)
-        0                   // number of TXT records
+    mdns_service_add("Automato HTTP",  // service instance name
+                     "_http",          // service type
+                     "_tcp",           // protocol
+                     80,               // service port
+                     NULL,             // TXT records (none)
+                     0                 // number of TXT records
     );
-
-
 }
 
 // Actions
@@ -1195,264 +1192,201 @@ static void evaluate_do(void* pv) {
     }
 }
 
-/* helper:  "YYYYMMDDHH" → time_t (returns 0 on error) */
+
+
+// --- helper: YYYYMMDDHH string → time_t ---------------------------------
 static time_t ymdh_to_time(const char* s) {
     int y, m, d, h;
-    if (sscanf(s, "%4d%2d%2d%2d", &y, &m, &d, &h) != 4) return 0;
-
-    struct tm t = {0};
-    t.tm_year = y - 1900;
-    t.tm_mon = m - 1;
-    t.tm_mday = d;
-    t.tm_hour = h;
-    t.tm_isdst = -1;   /* let mktime() figure DST */
-    return mktime(&t); /* 0 if date is invalid    */
+    return (sscanf(s, "%4d%2d%2d%2d", &y, &m, &d, &h) == 4) ? ({
+        struct tm t = {0};
+        t.tm_year = y - 1900;
+        t.tm_mon = m - 1;
+        t.tm_mday = d;
+        t.tm_hour = h;
+        t.tm_isdst = -1;
+        mktime(&t);
+    })
+                                                            : 0;
 }
 
-// Task to grab & log the OTE data every minute
-static void ote_read(void* pv) {
-    const char* URL = "https://www.ote-cr.cz/cs/kratkodobe-trhy/elektrina/denni-trh";
+// --- helper: store price if new / changed --------------------------------
+static bool try_store_price(const char* yyyymmdd, int hour, const char* price) {
+    if (!yyyymmdd[0]) return false;  // date not known yet
+    char key[16];
+    snprintf(key, sizeof(key), "o_%s%02d", yyyymmdd, hour);
+
+    char old[16] = {0};
+    size_t sz = sizeof(old);
+    esp_err_t err = nvs_get_str(nvs_handle_storage, key, old, &sz);
+    if (err == ESP_ERR_NVS_NOT_FOUND || (err == ESP_OK && strcmp(old, price) != 0)) {
+        ESP_LOGI(TAG, "NVS update %s: '%s' → '%s'", key, (err == ESP_OK) ? old : "<none>", price);
+        ESP_ERROR_CHECK(nvs_set_str(nvs_handle_storage, key, price));
+        return true;
+    }
+    return false;  // identical, nothing written
+}
+
+// --- main thread ----------------------------------------------------------
+void ote_read(void* pv) {
+#define CHUNK 1024                  // bytes read at once
+#define TAIL 512                    // overlap kept between reads
+#define PERIOD_MS (15 * 60 * 1000)  // 15‑min schedule outside the 13:01 window
+#define ISDIGIT(c) isdigit((unsigned char)(c))
+#define ISSPACE(c) isspace((unsigned char)(c))
+
+    static const char* URL = "https://www.ote-cr.cz/cs/kratkodobe-trhy/elektrina/denni-trh";
 
     char* chunk = heap_caps_malloc(CHUNK, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    if (!chunk) {
-        ESP_LOGE(TAG, "Memory missing when trying to allocate buffer for websraping");
-        vTaskDelete(NULL);
-    }
-
-    char tail[TAIL];
+    static char tail[TAIL];
     size_t tail_len = 0;
 
-    char yyyymmdd[9] = {0};  /* result date             */
-    char prices[24][16];     /* text prices             */
-    bool price_ok[24] = {0}; /* flags                   */
-
     for (;;) {
-        memset(price_ok, 0, sizeof(price_ok));
-        yyyymmdd[0] = '\0';
-        tail_len = 0;
+        bool something_changed = false;  // single commit optimisation
+        char yyyymmdd[9] = "";           // date once known
 
-        esp_http_client_config_t cfg = {.url = URL, .timeout_ms = 10000, .user_agent = "automato/grabber"};
-        esp_http_client_handle_t c = esp_http_client_init(&cfg);
+        esp_http_client_config_t cfg = {.url = URL,
+                                        .timeout_ms = 10000,
+                                        .user_agent = "automato/grabber",
+                                        .disable_auto_redirect = false,
+                                        .buffer_size = CHUNK};
+        esp_http_client_handle_t hc = esp_http_client_init(&cfg);
+        if (!hc || esp_http_client_open(hc, 0) != ESP_OK) {
+            ESP_LOGE(TAG, "HTTP open failed");
+            goto sleep_and_retry;
+        }
+        if (esp_http_client_get_status_code(hc) != 200) {
+            ESP_LOGE(TAG, "HTTP status %d", esp_http_client_get_status_code(hc));
+            esp_http_client_close(hc);
+            goto sleep_and_retry;
+        }
 
-        // fetch headers, possibly activate unzip
-        if (esp_http_client_open(c, 0) == ESP_OK) {
-            // fetch header
-            if (esp_http_client_fetch_headers(c) < 0) {
-                ESP_LOGE(TAG, "fetch_headers failed");
-                esp_http_client_close(c);
+        while (1) {
+            int r = esp_http_client_read(hc, chunk, CHUNK);
+            if (r == ESP_ERR_HTTP_EAGAIN) {
+                vTaskDelay(1);
                 continue;
             }
+            if (r < 0) {
+                ESP_LOGE(TAG, "read err %d", r);
+                break;
+            }
+            if (r == 0) break;  // body done
 
-            while (1) {
-                int r = esp_http_client_read(c, chunk, CHUNK);
+            // build work buffer: tail + new chunk
+            static char buf[TAIL + CHUNK + 1];
+            size_t n = 0;
+            memcpy(buf, tail, tail_len);
+            n += tail_len;
+            memcpy(buf + n, chunk, r);
+            n += r;
+            buf[n] = '\0';
 
-                // ESP_LOG_BUFFER_CHAR_LEVEL(TAG, chunk, r, ESP_LOG_WARN);
+            // --- 1. detect date -------------------------------------------
+            if (!yyyymmdd[0]) {
+                const char* anchor = strstr(buf, "Výsledky denního trhu");
+                if (anchor) {
+                    const char* p = anchor;
+                    while (*p && !ISDIGIT(*p)) ++p;
+                    if (ISDIGIT(p[0]) && ISDIGIT(p[1]) && p[2] == '.' && ISDIGIT(p[3]) && ISDIGIT(p[4]) &&
+                        p[5] == '.' && ISDIGIT(p[6]) && ISDIGIT(p[7]) && ISDIGIT(p[8]) && ISDIGIT(p[9])) {
+                        snprintf(yyyymmdd, 9, "%c%c%c%c%c%c%c%c", p[6], p[7], p[8], p[9], p[3], p[4], p[0], p[1]);
+                        ESP_LOGI(TAG, "OTE date %s", yyyymmdd);
+                    }
+                }
+            }
 
-                if (r == ESP_ERR_HTTP_EAGAIN) {
-                    vTaskDelay(1);
+            // --- 2. parse <th>hour</th><td>price</td> ---------------------
+            const char* scan = buf;
+            while ((scan = strstr(scan, "<th"))) {
+                const char* gt = strchr(scan, '>');
+                if (!gt) break;
+                const char* endth = strstr(gt, "</th>");
+                if (!endth) break;
+                char num[4] = {0};
+                size_t numlen = endth - (gt + 1);
+                if (numlen > 3) numlen = 3;
+                memcpy(num, gt + 1, numlen);
+                int hour = atoi(num);
+                if (hour < 1 || hour > 24) {
+                    scan = endth + 5;
                     continue;
                 }
-                if (r < 0) {
-                    ESP_LOGE(TAG, "read %d", r);
-                    break;
-                }
-                if (r == 0) break; /* body done */
 
-                /* build working buffer = tail + fresh data  --------------
-                 */
-                static char buf[TAIL + CHUNK + 1];
-                size_t n = 0;
-                memcpy(buf + n, tail, tail_len);
-                n += tail_len;
-                memcpy(buf + n, chunk, r);
-                n += r;
-                buf[n] = '\0';
+                const char* td = strstr(endth, "<td");
+                if (!td) break;
+                const char* gt2 = strchr(td, '>');
+                if (!gt2) break;
+                const char* endtd = strstr(gt2, "</td>");
+                if (!endtd) break;
+                const char* s = gt2 + 1;
+                while (s < endtd && ISSPACE(*s)) ++s;
+                const char* e = endtd;
+                while (e > s && ISSPACE(*(e - 1))) --e;
+                char price[16] = {0};
+                size_t plen = e - s;
+                if (plen >= sizeof(price)) plen = sizeof(price) - 1;
+                memcpy(price, s, plen);
+                for (char* c = price; *c; ++c)
+                    if (*c == ',') *c = '.';
 
-                /* ---------- 1. date ------------------------------------
-                 */
-                if (!yyyymmdd[0]) {
-                    const char* anchor = strstr(buf, "Výsledky denního trhu");
-                    if (anchor) {
-                        const char* p = anchor;
-                        while (*p && !isdigit((unsigned char)*p)) ++p;
-                        if (isdigit((unsigned char)p[0]) && isdigit((unsigned char)p[1]) && p[2] == '.' &&
-                            isdigit((unsigned char)p[3]) && isdigit((unsigned char)p[4]) && p[5] == '.' &&
-                            isdigit((unsigned char)p[6]) && isdigit((unsigned char)p[7]) &&
-                            isdigit((unsigned char)p[8]) && isdigit((unsigned char)p[9])) {
-                            yyyymmdd[0] = p[6];
-                            yyyymmdd[1] = p[7];
-                            yyyymmdd[2] = p[8];
-                            yyyymmdd[3] = p[9];
-                            yyyymmdd[4] = p[3];
-                            yyyymmdd[5] = p[4];
-                            yyyymmdd[6] = p[0];
-                            yyyymmdd[7] = p[1];
-                            yyyymmdd[8] = '\0';
-                            ESP_LOGI(TAG, "OTE date parsed: %s", yyyymmdd);
-                        }
-                    }
-                }
-
-                /* ---------- 2. prices ----------------------------------
-                 */
-                const char* scan = buf;
-                while ((scan = strstr(scan, "<th")) != NULL) {
-                    const char* gt = strchr(scan, '>');
-                    if (!gt) break;
-                    const char* endth = strstr(gt, "</th>");
-                    if (!endth) break;
-
-                    /* extract hour number */
-                    char num[4] = {0};
-                    size_t numlen = endth - (gt + 1);
-                    if (numlen > 3) numlen = 3;
-                    memcpy(num, gt + 1, numlen);
-                    int hour = atoi(num);
-                    if (hour < 1 || hour > 24 || price_ok[hour - 1]) {
-                        scan = endth + 5;
-                        continue;
-                    }
-
-                    /* find next <td …>PRICE</td> after </th> ------------
-                     */
-                    const char* td = strstr(endth, "<td");
-                    if (!td) break;
-                    const char* gt2 = strchr(td, '>');
-                    if (!gt2) break;
-                    const char* endtd = strstr(gt2, "</td>");
-                    if (!endtd) break;
-
-                    /* copy price, trim spaces */
-                    const char* s = gt2 + 1;
-                    while (s < endtd && isspace((unsigned char)*s)) ++s;
-                    const char* e = endtd;
-                    while (e > s && isspace((unsigned char)*(e - 1))) --e;
-
-                    size_t plen = e - s;
-                    if (plen >= sizeof(prices[0])) plen = sizeof(prices[0]) - 1;
-                    memcpy(prices[hour - 1], s, plen);
-                    prices[hour - 1][plen] = '\0';
-                    for (char* c = prices[hour - 1]; *c; ++c)
-                        if (*c == ',') *c = '.';
-                    price_ok[hour - 1] = true;
-
-                    if (yyyymmdd[0]) {
-                        char ts[13];
-                        snprintf(ts, sizeof(ts), "%s%02d", yyyymmdd, hour);
-                        ESP_LOGI(TAG, "OTE price grabbed from web for %s: %s", ts, prices[hour - 1]);
-
-                        // refresh/save to nvs
-                        {
-                            char key[16]; /* "o_yyyymmddhh"   */
-                            snprintf(key, sizeof(key), "o_%s%02d", yyyymmdd, hour);
-
-                            /* read the value, if it exists */
-                            char old_val[16] = {0};
-                            size_t sz = sizeof(old_val);
-                            esp_err_t err = nvs_get_str(nvs_handle_storage, key, old_val, &sz);
-
-                            /* store when key is missing OR value differs */
-                            if (err == ESP_ERR_NVS_NOT_FOUND ||                      /* not in
-                                                                                        NVS   */
-                                (err == ESP_OK && strcmp(old_val, prices[hour - 1])) /* different */
-                            ) {
-                                ESP_LOGI(TAG, "NVS update %s: \"%s\" → \"%s\"", key,
-                                         (err == ESP_OK) ? old_val : "<none>", prices[hour - 1]);
-
-                                err = nvs_set_str(nvs_handle_storage, key, prices[hour - 1]);
-                                if (err == ESP_OK) {
-                                    nvs_commit(nvs_handle_storage); /* make it
-                                                                       stick */
-                                } else {
-                                    ESP_LOGE(TAG, "nvs_set_str %s failed (%d)", key, err);
-                                }
-                            } else {
-                                ESP_LOGI(TAG,
-                                         "NVS %s not updated, same value "
-                                         "%s found",
-                                         key, old_val);
-                            }
-                        }
-                    }
-
-                    //
-                    scan = endtd + 5;
-                }
-
-                /* keep last 512 B for next loop -------------------------
-                 */
-                tail_len = n >= TAIL ? TAIL : n;
-                memcpy(tail, buf + n - tail_len, tail_len);
+                if (try_store_price(yyyymmdd, hour, price)) something_changed = true;
+                scan = endtd + 5;
             }
-            esp_http_client_close(c);
+
+            // keep last TAIL bytes for next pass
+            tail_len = (n > TAIL) ? TAIL : n;
+            memcpy(tail, buf + n - tail_len, tail_len);
         }
-        esp_http_client_cleanup(c);
+        esp_http_client_close(hc);
+        esp_http_client_cleanup(hc);
 
-        //
-        for (int h = 1; h <= 24; ++h)
-            if (!price_ok[h - 1]) ESP_LOGW(TAG, "Hour %d not parsed from OTE", h);
+        // commit once if anything changed ---------------------------------
+        if (something_changed) {
+            ESP_ERROR_CHECK(nvs_commit(nvs_handle_storage));
+            ESP_LOGI(TAG, "NVS committed");
+        }
 
-        // Tidy up old values from NVS, if present
-        {
-            /* 1. current timestamp from r_rrrrmmddhh ------------------- */
-            time_t now_ts = ymdh_to_time(r_rrrrmmddhh);
-            if (now_ts == 0) {
-                ESP_LOGE(TAG, "Failed to parse r_rrrrmmddhh=\"%s\"", r_rrrrmmddhh);
-            } else {
-                bool erased = false;
-
-                /* 2. walk through all string keys in namespace "storage" */
+    sleep_and_retry:
+        // -------- housekeeping: erase keys >48 h -------------------------
+        if (nntptime_status == 1 || nntptime_status == 2) {
+            char nowkey[13];
+            strftime(nowkey, 13, "%Y%m%d%H", &timeinfo_sntp);
+            time_t nowts = ymdh_to_time(nowkey);
+            if (nowts) {
                 nvs_iterator_t it = NULL;
-                esp_err_t res = nvs_entry_find(NVS_DEFAULT_PART_NAME, "storage", NVS_TYPE_STR, &it);
+                esp_err_t res = nvs_entry_find("nvs", "storage", NVS_TYPE_STR, &it);
                 while (res == ESP_OK) {
                     nvs_entry_info_t info;
                     nvs_entry_info(it, &info);
-
-                    /* keys of interest: "o_YYYYMMDDHH" (12 chars total) */
-                    if (strncmp(info.key, "o_", 2) == 0 && strlen(info.key) == 12) {
-                        time_t key_ts = ymdh_to_time(info.key + 2);
-                        if (key_ts && difftime(now_ts, key_ts) > 48 * 3600) {
-                            ESP_LOGW(TAG, "Erasing old NVS key %s", info.key);
+                    if (!strncmp(info.key, "o_", 2) && strlen(info.key) == 12) {
+                        time_t kts = ymdh_to_time(info.key + 2);
+                        if (kts && difftime(nowts, kts) > 48 * 3600) {
+                            ESP_LOGW(TAG, "Erasing old key %s", info.key);
                             nvs_erase_key(nvs_handle_storage, info.key);
-                            erased = true;
+                            something_changed = true;
                         }
                     }
                     res = nvs_entry_next(&it);
                 }
                 nvs_release_iterator(it);
-
-                if (erased) nvs_commit(nvs_handle_storage); /* one flash op */
+                if (something_changed) nvs_commit(nvs_handle_storage);
             }
         }
 
-        // Verify delay
-        int delay_ms = PERIOD_OTE_READ_MS;  // keep standard rhythm
-
-        if (nntptime_status == 1 || nntptime_status == 2)  // time is valid
-        {
-            /* a fresh, thread-safe copy of the current civil time -------- */
-            struct tm now_tm;
-            memcpy(&now_tm, &timeinfo_sntp,
-                   sizeof(now_tm));  //  <-- already updated by obtain_time()
-
-            /* Have we NOT reached 13:01 yet? ----------------------------- */
-            if (now_tm.tm_hour < 13 || (now_tm.tm_hour == 13 && now_tm.tm_min < 1)) {
-                /* seconds left until 13:01:00 today ---------------------- */
-                int sec_left = (12 - now_tm.tm_hour) * 3600 +   // full hours to go
-                               (60 - now_tm.tm_min - 1) * 60 +  // full minutes to go
-                               (60 - now_tm.tm_sec);            // seconds to go
-
+        // -------- adaptive sleep until next 13:01 ------------------------
+        int delay_ms = PERIOD_MS;
+        if (nntptime_status == 1 || nntptime_status == 2) {
+            struct tm tmnow;
+            memcpy(&tmnow, &timeinfo_sntp, sizeof(tmnow));
+            if (tmnow.tm_hour < 13 || (tmnow.tm_hour == 13 && tmnow.tm_min < 1)) {
+                int sec_left = (12 - tmnow.tm_hour) * 3600 + (60 - tmnow.tm_min - 1) * 60 + (60 - tmnow.tm_sec);
                 int ms_left = sec_left * 1000;
-
-                /* if the normal period would overshoot 13:01, shorten it  */
                 if (ms_left > 0 && ms_left < delay_ms) delay_ms = ms_left;
             }
         }
-
-        vTaskDelay(pdMS_TO_TICKS(delay_ms)); /* <-- replaces the old line */
+        vTaskDelay(pdMS_TO_TICKS(delay_ms));
     }
 }
-
 /**
  * @brief main app
  */
@@ -1766,7 +1700,7 @@ void app_main(void) {
     esp_err_t e = nvs_get_str(nvs_handle_storage, "lowline2", lowline2, &szl);
     if (e == ESP_ERR_NVS_NOT_FOUND) {
         // first boot: write the compile‐time default into NVS
-        strncpy(lowline2, "Kontakt: Ota Pekař, pekar@nescom.com, +420602328542", sizeof(lowline2)-1);
+        strncpy(lowline2, "Kontakt: Ota Pekař, pekar@nescom.com, +420602328542", sizeof(lowline2) - 1);
         nvs_set_str(nvs_handle_storage, "lowline2", lowline2);
         nvs_commit(nvs_handle_storage);
     }

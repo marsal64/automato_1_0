@@ -104,13 +104,6 @@ action_item actions[]={
 #define RELAY2 GPIO_NUM_6
 #define RELAY3 GPIO_NUM_7
 
-//// ote_read related definitions
-// chunk to read from OTE
-#define CHUNK 4096
-// tail to keep and merge with next chunk
-#define TAIL 512
-// interval in minutes after which OTE is regrabbed
-#define MINUTES_TO_GRAB_OTE 1
 
 // How long should be pressed the Reset button (ms) to reset initiation
 #define WIFI_BUTTON_PUSHMS_TO_INIT 5000
