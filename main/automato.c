@@ -30,7 +30,7 @@
 #include "cJSON.h"
 #include "driver/gpio.h"
 #include "driver/uart.h"
-// #include "esp_crt_bundle.h"
+#include "esp_crt_bundle.h"
 #include "esp_http_client.h"
 #include "esp_http_server.h"
 #include "esp_sntp.h"
@@ -1226,40 +1226,116 @@ static bool try_store_price(const char* yyyymmdd, int hour, const char* price) {
     return false;  // identical, nothing written
 }
 
-// --- main thread ----------------------------------------------------------
-void ote_read(void* pv) {
-#define CHUNK 1024                  // bytes read at once
-#define TAIL 512                    // overlap kept between reads
-#define PERIOD_MS (15 * 60 * 1000)  // 15‑min schedule outside the 13:01 window
+
+/* helper that returns the pointer to the *n*-th <td> (0-based)
+   in the current row                                                    */
+static const char* nth_td(const char* row, int n) {
+    for (int i = 0; i <= n; ++i) {
+        row = strstr(row, "<td");
+        if (!row) return NULL;
+        row = strchr(row, '>');
+        if (!row) return NULL;
+        ++row; /* point just after ‘>’ */
+    }
+    return row;
+}
+
+
+/* --------------------------------------------------------------------------
+ *  Scraper – downloads prices for *tomorrow’s* delivery from OTE
+ *  • waits until Wi-Fi + time are available
+ *  • rebuilds the URL on every pass so date always stays correct
+ *  • runs forever, sleeping PERIOD_MS between cycles except for the
+ *    short “wait-until-13:01” window
+ * ------------------------------------------------------------------------ */
+static void ote_read(void* pv) {
+/* ------ constants -------------------------------------------------- */
+#define CHUNK 1024                 /* bytes read at once          */
+#define TAIL 512                   /* overlap kept between reads  */
+#define PERIOD_MS (15 * 60 * 1000) /* 15-min default cadence      */
 #define ISDIGIT(c) isdigit((unsigned char)(c))
 #define ISSPACE(c) isspace((unsigned char)(c))
 
-    static const char* URL = "https://www.ote-cr.cz/cs/kratkodobe-trhy/elektrina/denni-trh";
-
+    /* ------ scratch buffers ------------------------------------------- */
     char* chunk = heap_caps_malloc(CHUNK, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     static char tail[TAIL];
     size_t tail_len = 0;
 
-    for (;;) {
-        bool something_changed = false;  // single commit optimisation
-        char yyyymmdd[9] = "";           // date once known
+    bool something_changed = false;
 
-        esp_http_client_config_t cfg = {.url = URL,
+
+    for (;;) {
+        /* --------------------------------------------------------------
+         *  guard – wait until:
+         *    • Wi-Fi is connected    (device_connected)
+         *    • we have at least some time (nntptime_status 1 or 2)
+         * ------------------------------------------------------------ */
+        if (!device_connected || nntptime_status == 0) {
+            vTaskDelay(pdMS_TO_TICKS(5000)); /* retry in 5 s            */
+            continue;                        /* restart loop guarded    */
+        }
+
+        /* --------------------------------------------------------------
+         *  Build URL “…?date=YYYY-MM-DD” for *tomorrow’s* delivery.
+         * ------------------------------------------------------------ */
+        char url[128];
+        {
+            char yyyymmdd[16]; /* <-- NEW: will hold 20250531 */
+            struct tm tm_req;
+            localtime_r(&now_sntp, &tm_req); /* current CET/CEST        */
+            tm_req.tm_mday += 1;             /* next calendar day       */
+            mktime(&tm_req);                 /* normalise the struct    */
+
+            /* URL for the HTTP client */
+            strftime(url, sizeof url, "https://www.ote-cr.cz/cs/kratkodobe-trhy/elektrina/denni-trh?date=%Y-%m-%d",
+                     &tm_req);
+
+            /* YYYYMMDD that will be used as the NVS key prefix */
+            strftime(yyyymmdd, sizeof yyyymmdd, "%Y%m%d", &tm_req); /* <-- NEW */
+            ESP_LOGI(TAG, "OTE URL %s  (keys will start with o_%sXX)", url, yyyymmdd);
+        }
+        /* ------ HTTP setup ------------------------------------------- */
+        esp_http_client_config_t cfg = {.url = url,
                                         .timeout_ms = 10000,
                                         .user_agent = "automato/grabber",
                                         .disable_auto_redirect = false,
-                                        .buffer_size = CHUNK};
+                                        .buffer_size = CHUNK,
+                                        .crt_bundle_attach = esp_crt_bundle_attach};
         esp_http_client_handle_t hc = esp_http_client_init(&cfg);
-        if (!hc || esp_http_client_open(hc, 0) != ESP_OK) {
-            ESP_LOGE(TAG, "HTTP open failed");
-            goto sleep_and_retry;
-        }
-        if (esp_http_client_get_status_code(hc) != 200) {
-            ESP_LOGE(TAG, "HTTP status %d", esp_http_client_get_status_code(hc));
-            esp_http_client_close(hc);
+        if (!hc) {
+            ESP_LOGE(TAG, "esp_http_client_init failed");
             goto sleep_and_retry;
         }
 
+        esp_err_t err_open = esp_http_client_open(hc, 0);
+        if (err_open != ESP_OK) {
+            ESP_LOGE(TAG, "HTTP open failed (%s)", esp_err_to_name(err_open));
+            esp_http_client_cleanup(hc);
+            goto sleep_and_retry;
+        }
+
+        /* you *must* fetch headers once before asking for the code            */
+        int64_t hdr_len = esp_http_client_fetch_headers(hc);
+        if (hdr_len < 0) { /* negative = error            */
+            ESP_LOGE(TAG, "fetch_headers failed (%lld)", hdr_len);
+            esp_http_client_close(hc);
+            esp_http_client_cleanup(hc);
+            goto sleep_and_retry;
+        }
+
+        int http_status = esp_http_client_get_status_code(hc);
+        if (http_status != 200) {
+            ESP_LOGE(TAG, "HTTP status %d", http_status);
+            esp_http_client_close(hc);
+            esp_http_client_cleanup(hc);
+            goto sleep_and_retry;
+        }
+
+        /* ------ parsing state ---------------------------------------- */
+        something_changed = false;
+        char yyyymmdd[16] = ""; /* delivery date once found */
+
+        /* ------ stream-read + parse ---------------------------------- */
         while (1) {
             int r = esp_http_client_read(hc, chunk, CHUNK);
             if (r == ESP_ERR_HTTP_EAGAIN) {
@@ -1270,9 +1346,9 @@ void ote_read(void* pv) {
                 ESP_LOGE(TAG, "read err %d", r);
                 break;
             }
-            if (r == 0) break;  // body done
+            if (r == 0) break; /* body done         */
 
-            // build work buffer: tail + new chunk
+            /* ------------ build working buffer tail + new chunk ------ */
             static char buf[TAIL + CHUNK + 1];
             size_t n = 0;
             memcpy(buf, tail, tail_len);
@@ -1281,77 +1357,94 @@ void ote_read(void* pv) {
             n += r;
             buf[n] = '\0';
 
-            // --- 1. detect date -------------------------------------------
+            /* ------------ 1. detect date dd.mm.yyyy ------------------ */
             if (!yyyymmdd[0]) {
-                const char* anchor = strstr(buf, "Výsledky denního trhu");
-                if (anchor) {
-                    const char* p = anchor;
-                    while (*p && !ISDIGIT(*p)) ++p;
-                    if (ISDIGIT(p[0]) && ISDIGIT(p[1]) && p[2] == '.' && ISDIGIT(p[3]) && ISDIGIT(p[4]) &&
-                        p[5] == '.' && ISDIGIT(p[6]) && ISDIGIT(p[7]) && ISDIGIT(p[8]) && ISDIGIT(p[9])) {
-                        snprintf(yyyymmdd, 9, "%c%c%c%c%c%c%c%c", p[6], p[7], p[8], p[9], p[3], p[4], p[0], p[1]);
+                for (const char* p = buf; (p = strpbrk(p, "0123456789")); ++p) {
+                    int d, m, y;
+                    if (sscanf(p, "%d.%d.%d", &d, &m, &y) == 3 && y > 2000 && (d >= 1 && d <= 31) &&
+                        (m >= 1 && m <= 12)) {
+                        snprintf(yyyymmdd, sizeof yyyymmdd, "%04d%02d%02d", y % 10000, m % 100, d % 100);
                         ESP_LOGI(TAG, "OTE date %s", yyyymmdd);
+                        break;
                     }
                 }
             }
 
-            // --- 2. parse <th>hour</th><td>price</td> ---------------------
+            /* --- 2. parse one <tr> at a time ---------------------------------- */
             const char* scan = buf;
-            while ((scan = strstr(scan, "<th"))) {
-                const char* gt = strchr(scan, '>');
-                if (!gt) break;
-                const char* endth = strstr(gt, "</th>");
-                if (!endth) break;
-                char num[4] = {0};
-                size_t numlen = endth - (gt + 1);
-                if (numlen > 3) numlen = 3;
-                memcpy(num, gt + 1, numlen);
-                int hour = atoi(num);
-                if (hour < 1 || hour > 24) {
-                    scan = endth + 5;
-                    continue;
+
+            while ((scan = strstr(scan, "<tr"))) {
+                const char* row_end = strstr(scan, "</tr>");
+                if (!row_end) break;
+
+                /* 2-a  :  try the original  <th></th><td></td> layout ------------- */
+                const char* gt = strstr(scan, "<th");
+                if (gt && gt < row_end) {
+                    gt = strchr(gt, '>');
+                    const char* endth = gt ? strstr(gt, "</th>") : NULL;
+                    if (gt && endth && endth < row_end) {
+                        int hour = atoi(gt + 1);
+
+                        const char* td1 = strstr(endth, "<td");
+                        const char* gt2 = td1 ? strchr(td1, '>') : NULL;
+                        const char* endtd = gt2 ? strstr(gt2, "</td>") : NULL;
+
+                        if (gt2 && endtd && endtd < row_end) {
+                            char price[16] = {0};
+                            size_t plen = endtd - (gt2 + 1);
+                            if (plen >= sizeof price) plen = sizeof price - 1;
+                            memcpy(price, gt2 + 1, plen);
+                            for (char* c = price; *c; ++c)
+                                if (*c == ',') *c = '.';
+
+                            if (hour >= 1 && hour <= 24 && try_store_price(yyyymmdd, hour, price))
+                                something_changed = true;
+                        }
+                    }
+                }
+                /* 2-b  :  new layout  <td>hour</td><td>price</td> ----------------- */
+                else {
+                    const char* td0 = nth_td(scan, 0); /* first <td>  */
+                    const char* td1 = nth_td(scan, 1); /* second <td> */
+                    const char* e0 = td0 ? strchr(td0, '<') : NULL;
+                    const char* e1 = td1 ? strchr(td1, '<') : NULL;
+
+                    if (td0 && e0 && td1 && e1 && td0 < row_end && td1 < row_end) {
+                        int hour = atoi(td0);
+                        char price[16] = {0};
+                        size_t plen = e1 - td1;
+                        if (plen >= sizeof price) plen = sizeof price - 1;
+                        memcpy(price, td1, plen);
+                        for (char* c = price; *c; ++c)
+                            if (*c == ',') *c = '.';
+
+                        if (hour >= 1 && hour <= 24 && try_store_price(yyyymmdd, hour, price)) something_changed = true;
+                    }
                 }
 
-                const char* td = strstr(endth, "<td");
-                if (!td) break;
-                const char* gt2 = strchr(td, '>');
-                if (!gt2) break;
-                const char* endtd = strstr(gt2, "</td>");
-                if (!endtd) break;
-                const char* s = gt2 + 1;
-                while (s < endtd && ISSPACE(*s)) ++s;
-                const char* e = endtd;
-                while (e > s && ISSPACE(*(e - 1))) --e;
-                char price[16] = {0};
-                size_t plen = e - s;
-                if (plen >= sizeof(price)) plen = sizeof(price) - 1;
-                memcpy(price, s, plen);
-                for (char* c = price; *c; ++c)
-                    if (*c == ',') *c = '.';
-
-                if (try_store_price(yyyymmdd, hour, price)) something_changed = true;
-                scan = endtd + 5;
+                scan = row_end + 5; /* next row */
             }
-
-            // keep last TAIL bytes for next pass
+            /* keep last TAIL bytes for next pass ---------------------- */
             tail_len = (n > TAIL) ? TAIL : n;
             memcpy(tail, buf + n - tail_len, tail_len);
         }
+
         esp_http_client_close(hc);
         esp_http_client_cleanup(hc);
 
-        // commit once if anything changed ---------------------------------
+        /* ------ one commit per cycle if anything changed ------------- */
         if (something_changed) {
             ESP_ERROR_CHECK(nvs_commit(nvs_handle_storage));
             ESP_LOGI(TAG, "NVS committed");
         }
 
     sleep_and_retry:
-        // -------- housekeeping: erase keys >48 h -------------------------
+        /* ------ housekeeping – delete keys older than 48 h ----------- */
         if (nntptime_status == 1 || nntptime_status == 2) {
             char nowkey[13];
-            strftime(nowkey, 13, "%Y%m%d%H", &timeinfo_sntp);
+            strftime(nowkey, sizeof nowkey, "%Y%m%d%H", &timeinfo_sntp);
             time_t nowts = ymdh_to_time(nowkey);
+
             if (nowts) {
                 nvs_iterator_t it = NULL;
                 esp_err_t res = nvs_entry_find("nvs", "storage", NVS_TYPE_STR, &it);
@@ -1373,11 +1466,11 @@ void ote_read(void* pv) {
             }
         }
 
-        // -------- adaptive sleep until next 13:01 ------------------------
+        /* ------ adaptive sleep: shorter until 13:01 ------------------ */
         int delay_ms = PERIOD_MS;
         if (nntptime_status == 1 || nntptime_status == 2) {
             struct tm tmnow;
-            memcpy(&tmnow, &timeinfo_sntp, sizeof(tmnow));
+            memcpy(&tmnow, &timeinfo_sntp, sizeof tmnow);
             if (tmnow.tm_hour < 13 || (tmnow.tm_hour == 13 && tmnow.tm_min < 1)) {
                 int sec_left = (12 - tmnow.tm_hour) * 3600 + (60 - tmnow.tm_min - 1) * 60 + (60 - tmnow.tm_sec);
                 int ms_left = sec_left * 1000;
@@ -1387,6 +1480,9 @@ void ote_read(void* pv) {
         vTaskDelay(pdMS_TO_TICKS(delay_ms));
     }
 }
+
+
+// --- main thread ----------------------------------------------------------
 /**
  * @brief main app
  */
